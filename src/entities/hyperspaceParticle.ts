@@ -1,5 +1,5 @@
-import type { Vector2 } from '../types';
-import { add, scale } from '../math';
+import type { Vector2 } from '../core/types';
+import { add, scale } from '../physics/math';
 
 // Hyperspace particle - a point that animates during hyperspace transition
 

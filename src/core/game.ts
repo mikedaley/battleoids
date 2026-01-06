@@ -1,7 +1,7 @@
 import type { GameData } from './types';
-import { Renderer } from './renderer';
-import { InputHandler } from './input';
-import { AudioManager } from './audio';
+import { Renderer } from '../rendering/renderer';
+import { InputHandler } from '../systems/input';
+import { AudioManager } from '../systems/audio';
 import {
   Ship,
   Asteroid,
@@ -11,10 +11,10 @@ import {
   HyperspaceParticles,
   UFO,
   GravityWell,
-} from './entities';
-import { checkCollision, wrapEntity } from './collision';
-import { angleToVector, randomRange } from './math';
-import { drawMainMenu, drawHUD, drawGameOver, type HUDState } from './ui';
+} from '../entities';
+import { checkCollision, wrapEntity } from '../physics/collision';
+import { angleToVector, randomRange } from '../physics/math';
+import { drawMainMenu, drawHUD, drawGameOver, type HUDState } from '../rendering/ui';
 import { CONFIG } from './config';
 import {
   createAsteroids,
@@ -23,7 +23,7 @@ import {
   createDebris,
   getNextUFOSpawnTime,
   getNextGravityWellSpawnTime,
-} from './spawner';
+} from '../systems/spawner';
 
 export class Game {
   private renderer: Renderer;

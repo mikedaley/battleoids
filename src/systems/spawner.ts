@@ -1,8 +1,8 @@
-import type { Vector2 } from './types';
-import { randomRange } from './math';
-import { CONFIG } from './config';
-import { Asteroid, UFO, GravityWell, Debris } from './entities';
-import type { UFOSize } from './entities/ufo';
+import type { Vector2 } from '../core/types';
+import { randomRange } from '../physics/math';
+import { CONFIG } from '../core/config';
+import { Asteroid, UFO, GravityWell, Debris } from '../entities';
+import type { UFOSize } from '../entities/ufo';
 
 /**
  * Spawner module - handles entity creation logic

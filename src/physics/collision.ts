@@ -1,4 +1,4 @@
-import type { Entity } from './types';
+import type { Entity } from '../core/types';
 import { distance } from './math';
 
 // Simple circle-based collision detection

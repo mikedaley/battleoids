@@ -1,6 +1,6 @@
-import type { Entity, Shape, Vector2 } from '../types';
-import { add, scale, angleToVector, magnitude } from '../math';
-import { CONFIG } from '../config';
+import type { Entity, Shape, Vector2 } from '../core/types';
+import { add, scale, angleToVector, magnitude } from '../physics/math';
+import { CONFIG } from '../core/config';
 
 // The player's ship - a classic triangle design
 

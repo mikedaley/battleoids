@@ -1,6 +1,6 @@
-import type { Vector2 } from '../types';
+import type { Vector2 } from '../core/types';
 import { TimedEntity } from './baseEntity';
-import { CONFIG } from '../config';
+import { CONFIG } from '../core/config';
 
 /**
  * Gravity well - pulls the ship towards it, traps if too close

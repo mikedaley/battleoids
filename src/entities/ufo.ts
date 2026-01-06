@@ -1,6 +1,6 @@
-import type { Shape } from '../types';
-import { randomRange } from '../math';
-import { CONFIG } from '../config';
+import type { Shape } from '../core/types';
+import { randomRange } from '../physics/math';
+import { CONFIG } from '../core/config';
 import { ScoreableEntity } from './baseEntity';
 
 // UFO sizes - small is faster and worth more points but harder to hit

@@ -1,4 +1,4 @@
-import type { Vector2 } from './types';
+import type { Vector2 } from '../core/types';
 
 // Vector font - each character is defined as a series of line segments
 // Coordinates are on a 5x7 grid (width x height)

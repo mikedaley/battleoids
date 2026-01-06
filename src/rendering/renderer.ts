@@ -1,5 +1,5 @@
-import type { Vector2, Shape, Transform } from './types';
-import { rotate, add } from './math';
+import type { Vector2, Shape, Transform } from '../core/types';
+import { rotate, add } from '../physics/math';
 import { getTextSegments, getTextWidth } from './font';
 
 // Batched renderer - collects all draw calls and renders them together

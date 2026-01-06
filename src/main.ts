@@ -1,4 +1,4 @@
-import { Game } from './game';
+import { Game } from './core/game';
 
 // Entry point - just grab the canvas and start the game
 

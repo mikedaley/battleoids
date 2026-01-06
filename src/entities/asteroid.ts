@@ -1,6 +1,6 @@
-import type { Shape, Vector2, AsteroidSize } from '../types';
-import { scale, randomRange, randomInt } from '../math';
-import { CONFIG } from '../config';
+import type { Shape, Vector2, AsteroidSize } from '../core/types';
+import { scale, randomRange, randomInt } from '../physics/math';
+import { CONFIG } from '../core/config';
 import { ScoreableEntity } from './baseEntity';
 
 // Asteroids come in three sizes and have irregular shapes

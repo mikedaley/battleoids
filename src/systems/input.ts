@@ -1,4 +1,4 @@
-import type { KeyState } from './types';
+import type { KeyState } from '../core/types';
 
 // Handles keyboard input and tracks which keys are currently pressed
 

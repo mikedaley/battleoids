@@ -1,6 +1,6 @@
-import type { Vector2 } from '../types';
-import { scale } from '../math';
-import { CONFIG } from '../config';
+import type { Vector2 } from '../core/types';
+import { scale } from '../physics/math';
+import { CONFIG } from '../core/config';
 import { TimedEntity } from './baseEntity';
 
 // Bullets are simple fast-moving points

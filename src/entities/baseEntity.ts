@@ -1,5 +1,5 @@
-import type { Entity, Shape, Vector2, Transform } from '../types';
-import { add, scale } from '../math';
+import type { Entity, Shape, Vector2, Transform } from '../core/types';
+import { add, scale } from '../physics/math';
 
 /**
  * Abstract base class for all game entities

@@ -1,6 +1,6 @@
-import type { Vector2 } from '../types';
-import { add, scale, rotate, randomRange } from '../math';
-import { CONFIG } from '../config';
+import type { Vector2 } from '../core/types';
+import { add, scale, rotate, randomRange } from '../physics/math';
+import { CONFIG } from '../core/config';
 
 // A single piece of debris - a line segment that drifts and fades
 
