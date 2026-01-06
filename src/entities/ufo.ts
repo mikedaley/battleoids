@@ -39,8 +39,10 @@ export class UFO extends ScoreableEntity {
   private verticalDirection = 0;
   private baseSpeed: number;
   private horizontalDirection: number; // 1 = right, -1 = left
+  private shootTimer = 0;
+  private shootCooldown: number;
 
-  constructor(screenWidth: number, screenHeight: number, size: UFOSize = 'large') {
+  constructor(screenWidth: number, screenHeight: number, size: UFOSize = 'large', level = 1) {
     const config = CONFIG.ufo[size];
     super(0, 0, config.points); // Position set below
 
@@ -48,6 +50,14 @@ export class UFO extends ScoreableEntity {
     this.shape = generateUFOShape(size);
     this.radius = config.radius;
     this.baseSpeed = config.speed;
+
+    // Cooldown decreases with level (fires faster at higher levels)
+    // Reduce by 10% per level, minimum 30% of original
+    const cooldownMultiplier = Math.max(0.3, 1 - (level - 1) * 0.1);
+    this.shootCooldown = config.shootCooldown * cooldownMultiplier;
+
+    // Start with a random delay before first shot
+    this.shootTimer = randomRange(0.5, this.shootCooldown);
 
     // Spawn on left or right edge
     const spawnOnLeft = Math.random() < 0.5;
@@ -83,6 +93,11 @@ export class UFO extends ScoreableEntity {
       );
     }
 
+    // Update shoot timer
+    if (this.shootTimer > 0) {
+      this.shootTimer -= dt;
+    }
+
     // Update velocity with vertical component
     this.velocity = {
       x: this.baseSpeed * this.horizontalDirection,
@@ -91,6 +106,30 @@ export class UFO extends ScoreableEntity {
 
     // Use parent's physics update
     super.update(dt);
+  }
+
+  /**
+   * Check if UFO is ready to fire and return shot angle toward player
+   * Returns angle in radians if ready to shoot, null otherwise
+   */
+  tryShoot(playerX: number, playerY: number): number | null {
+    if (this.shootTimer > 0) {
+      return null;
+    }
+
+    // Reset timer
+    this.shootTimer = this.shootCooldown;
+
+    // Calculate angle to player with some inaccuracy
+    const dx = playerX - this.transform.position.x;
+    const dy = playerY - this.transform.position.y;
+    const angleToPlayer = Math.atan2(dy, dx);
+
+    // Large UFOs are less accurate than small ones
+    const inaccuracy = this.size === 'large' ? 0.4 : 0.15;
+    const randomSpread = randomRange(-inaccuracy, inaccuracy);
+
+    return angleToPlayer + randomSpread;
   }
 
   // Check if UFO has left the screen (for cleanup)

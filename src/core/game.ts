@@ -33,6 +33,7 @@ export class Game {
   private ship: Ship;
   private asteroids: Asteroid[] = [];
   private bullets: Bullet[] = [];
+  private ufoBullets: Bullet[] = [];
   private debris: Debris[] = [];
   private hyperspaceParticles: HyperspaceParticles | null = null;
   private ufo: UFO | null = null;
@@ -142,29 +143,31 @@ export class Game {
       this.fireCooldown -= dt;
     }
 
-    // Handle input
-    const keys = this.input.getKeys();
-    this.ship.isThrusting = false;
+    // Handle input (block during respawn while debris is clearing)
+    if (this.respawnTimer <= 0) {
+      const keys = this.input.getKeys();
+      this.ship.isThrusting = false;
 
-    if (this.ship.isActive) {
-      if (keys.left) {
-        this.ship.rotateLeft(dt);
-      }
-      if (keys.right) {
-        this.ship.rotateRight(dt);
-      }
-      if (keys.thrust) {
-        this.ship.thrust(dt);
-        this.audio.playThrust();
-      }
-      if (this.input.consumeFirePress() && this.fireCooldown <= 0) {
-        this.fire();
-      }
-      if (this.input.consumeHyperspacePress()) {
-        // Generate random position
-        const targetX = randomRange(0, this.renderer.width);
-        const targetY = randomRange(0, this.renderer.height);
-        this.ship.activateHyperspace(targetX, targetY);
+      if (this.ship.isActive) {
+        if (keys.left) {
+          this.ship.rotateLeft(dt);
+        }
+        if (keys.right) {
+          this.ship.rotateRight(dt);
+        }
+        if (keys.thrust) {
+          this.ship.thrust(dt);
+          this.audio.playThrust();
+        }
+        if (this.input.consumeFirePress() && this.fireCooldown <= 0) {
+          this.fire();
+        }
+        if (this.input.consumeHyperspacePress()) {
+          // Generate random position
+          const targetX = randomRange(0, this.renderer.width);
+          const targetY = randomRange(0, this.renderer.height);
+          this.ship.activateHyperspace(targetX, targetY);
+        }
       }
     }
 
@@ -211,6 +214,11 @@ export class Game {
       wrapEntity(bullet, this.renderer.width, this.renderer.height);
     }
 
+    for (const bullet of this.ufoBullets) {
+      bullet.update(dt);
+      wrapEntity(bullet, this.renderer.width, this.renderer.height);
+    }
+
     // Update UFO spawn timer and UFO
     this.updateUFO(dt);
 
@@ -225,10 +233,12 @@ export class Game {
 
     // Remove inactive bullets
     this.bullets = this.bullets.filter((b) => b.isActive);
+    this.ufoBullets = this.ufoBullets.filter((b) => b.isActive);
 
     // Check collisions
     this.checkBulletCollisions();
     this.checkUFOCollisions();
+    this.checkUFOBulletCollisions();
     this.checkShipCollision();
 
     // Check if level is complete
@@ -290,6 +300,20 @@ export class Game {
     }
   }
 
+  private checkUFOBulletCollisions(): void {
+    if (!this.ship.isActive || this.ship.isInvulnerable() || this.ship.isInHyperspace()) {
+      return;
+    }
+
+    for (const bullet of this.ufoBullets) {
+      if (checkCollision(bullet, this.ship)) {
+        bullet.isActive = false;
+        this.shipDestroyed();
+        return;
+      }
+    }
+  }
+
   private updateUFO(dt: number): void {
     // Update spawn timer when no UFO is active
     if (!this.ufo) {
@@ -309,6 +333,24 @@ export class Game {
       this.ufo.transform.position.y = this.renderer.height + this.ufo.radius;
     } else if (y > this.renderer.height + this.ufo.radius) {
       this.ufo.transform.position.y = -this.ufo.radius;
+    }
+
+    // UFO shoots at player
+    if (this.ship.isActive && !this.ship.isInHyperspace()) {
+      const shotAngle = this.ufo.tryShoot(
+        this.ship.transform.position.x,
+        this.ship.transform.position.y
+      );
+      if (shotAngle !== null) {
+        const direction = angleToVector(shotAngle);
+        const bullet = new Bullet(
+          this.ufo.transform.position.x,
+          this.ufo.transform.position.y,
+          direction
+        );
+        this.ufoBullets.push(bullet);
+        this.audio.playShoot();
+      }
     }
 
     // Remove UFO when it exits the screen horizontally
@@ -420,6 +462,9 @@ export class Game {
     this.ship.isActive = false;
     this.data.lives--;
 
+    // Clear any buffered inputs so they don't trigger on respawn
+    this.input.clearAll();
+
     this.audio.playDeath();
 
     if (this.data.lives <= 0) {
@@ -478,6 +523,7 @@ export class Game {
     };
     this.asteroids = [];
     this.bullets = [];
+    this.ufoBullets = [];
     this.debris = [];
     this.ship.reset(this.renderer.width / 2, this.renderer.height / 2);
     this.respawnTimer = 0;
@@ -513,6 +559,11 @@ export class Game {
     // Draw bullets in yellow
     for (const bullet of this.bullets) {
       this.renderer.drawPoint(bullet.transform.position, 3, '#ff0');
+    }
+
+    // Draw UFO bullets in green
+    for (const bullet of this.ufoBullets) {
+      this.renderer.drawPoint(bullet.transform.position, 3, '#0f0');
     }
 
     // Draw debris in the color of the destroyed entity

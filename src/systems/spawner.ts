@@ -52,7 +52,7 @@ export function createUFO(
   );
   const size: UFOSize = Math.random() < smallChance ? 'small' : 'large';
 
-  return new UFO(screenWidth, screenHeight, size);
+  return new UFO(screenWidth, screenHeight, size, level);
 }
 
 /**

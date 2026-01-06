@@ -118,7 +118,7 @@ export const CONFIG = {
 
   // Debug settings
   debug: {
-    disablePlayerCollision: true,
+    disablePlayerCollision: false,
     alwaysShowGravityWell: false,
   },
 };
