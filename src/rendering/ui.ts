@@ -27,74 +27,67 @@ const UFO_DISPLAY_SHAPE = [
 function drawScoreGuide(renderer: Renderer, width: number): void {
   const cx = width / 2;
   const startY = 300;
-  const rowHeight = 40;
+  const rowHeight = 50;
 
   // Section header
   renderer.drawText('SCORE', cx, startY - 20, 2, '#888');
 
-  // Layout: shape on left, score on right for each row
-  const shapeX = cx - 50;
-  const scoreX = cx + 50;
-  let y = startY + 20;
+  // Two-column layout
+  const colSpacing = 180;
+  const leftShapeX = cx - colSpacing - 30;
+  const leftScoreX = cx - colSpacing + 40;
+  const rightShapeX = cx + colSpacing - 70;
+  const rightScoreX = cx + colSpacing + 10;
 
-  // Text y is the top of the text, so offset up by half text height to center vertically
   const textOffsetY = -8;
+  let y = startY + 25;
 
-  // Large asteroid - 20 pts
+  // Row 1: Large asteroid (left) | Large UFO (right)
   renderer.drawShape(
     ASTEROID_DISPLAY_SHAPE,
-    { position: { x: shapeX, y }, rotation: 0, scale: 18 },
+    { position: { x: leftShapeX, y }, rotation: 0, scale: 18 },
     '#f0f'
   );
-  renderer.drawText('20', scoreX, y + textOffsetY, 1.8, '#fff');
+  renderer.drawText('20', leftScoreX, y + textOffsetY, 1.8, '#fff');
 
-  y += rowHeight;
-
-  // Medium asteroid - 50 pts
-  renderer.drawShape(
-    ASTEROID_DISPLAY_SHAPE,
-    { position: { x: shapeX, y }, rotation: 0.5, scale: 12 },
-    '#f0f'
-  );
-  renderer.drawText('50', scoreX, y + textOffsetY, 1.8, '#fff');
-
-  y += rowHeight;
-
-  // Small asteroid - 100 pts
-  renderer.drawShape(
-    ASTEROID_DISPLAY_SHAPE,
-    { position: { x: shapeX, y }, rotation: 1, scale: 7 },
-    '#f0f'
-  );
-  renderer.drawText('100', scoreX, y + textOffsetY, 1.8, '#fff');
-
-  y += rowHeight;
-
-  // Large UFO - 200 pts
   renderer.drawShape(
     UFO_DISPLAY_SHAPE,
-    { position: { x: shapeX, y }, rotation: 0, scale: 14 },
+    { position: { x: rightShapeX, y }, rotation: 0, scale: 14 },
     '#0f0'
   );
-  renderer.drawText('200', scoreX, y + textOffsetY, 1.8, '#fff');
+  renderer.drawText('200', rightScoreX, y + textOffsetY, 1.8, '#fff');
 
   y += rowHeight;
 
-  // Small UFO - 1000 pts
+  // Row 2: Medium asteroid (left) | Small UFO (right)
+  renderer.drawShape(
+    ASTEROID_DISPLAY_SHAPE,
+    { position: { x: leftShapeX, y }, rotation: 0.5, scale: 12 },
+    '#f0f'
+  );
+  renderer.drawText('50', leftScoreX, y + textOffsetY, 1.8, '#fff');
+
   renderer.drawShape(
     UFO_DISPLAY_SHAPE,
-    { position: { x: shapeX, y }, rotation: 0, scale: 9 },
+    { position: { x: rightShapeX, y }, rotation: 0, scale: 9 },
     '#0f0'
   );
-  renderer.drawText('1000', scoreX, y + textOffsetY, 1.8, '#fff');
+  renderer.drawText('1000', rightScoreX, y + textOffsetY, 1.8, '#fff');
 
   y += rowHeight;
 
-  // Gravity well - danger indicator
-  renderer.drawCircle({ x: shapeX, y }, 8, '#a0f', 2, 1, 12);
-  renderer.drawCircle({ x: shapeX, y }, 14, '#f0f', 1, 0.6, 12);
-  renderer.drawPoint({ x: shapeX, y }, 3, '#fff');
-  renderer.drawText('DANGER', scoreX, y + textOffsetY, 1.8, '#f00');
+  // Row 3: Small asteroid (left) | Gravity well (right)
+  renderer.drawShape(
+    ASTEROID_DISPLAY_SHAPE,
+    { position: { x: leftShapeX, y }, rotation: 1, scale: 7 },
+    '#f0f'
+  );
+  renderer.drawText('100', leftScoreX, y + textOffsetY, 1.8, '#fff');
+
+  renderer.drawCircle({ x: rightShapeX, y }, 8, '#a0f', 2, 1, 12);
+  renderer.drawCircle({ x: rightShapeX, y }, 14, '#f0f', 1, 0.6, 12);
+  renderer.drawPoint({ x: rightShapeX, y }, 3, '#fff');
+  renderer.drawText('DANGER', rightScoreX, y + textOffsetY, 1.8, '#f00');
 }
 
 export function drawMainMenu(renderer: Renderer, width: number, height: number): void {

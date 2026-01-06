@@ -59,9 +59,8 @@ export const CONFIG = {
   // Gravity well settings
   gravityWell: {
     pullRadius: 200,
-    trapRadius: 30,
-    visualRadius: 25,
-    pullStrength: 150,
+    visualRadius: 30,
+    pullStrength: { min: 150, max: 500 },
     spawnDelay: { min: 20, max: 40 },
     duration: { min: 6, max: 10 },
     spawnMargin: 100,
@@ -106,7 +105,7 @@ export const CONFIG = {
     debrisSpeed: 100,
     hyperspaceParticleCount: 24,
     gravityWellSpiralArms: 4,
-    gravityWellPointsPerArm: 15,
+    gravityWellPointsPerArm: 10,
     circleSegments: 24,
   },
 
@@ -116,7 +115,13 @@ export const CONFIG = {
     lives: 3,
     level: 1,
   },
-} as const;
+
+  // Debug settings
+  debug: {
+    disablePlayerCollision: true,
+    alwaysShowGravityWell: false,
+  },
+};
 
 // Type exports for config sections
 export type ScreenConfig = typeof CONFIG.screen;

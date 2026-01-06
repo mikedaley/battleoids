@@ -3,23 +3,41 @@ import { TimedEntity } from './baseEntity';
 import { CONFIG } from '../core/config';
 
 /**
- * Gravity well - pulls the ship towards it, traps if too close
+ * Gravity well - provides constant pull towards center
+ * Player can fight against it with thrust but will be slowly pulled in
  * Has a swirling visual effect with spiral arms and rings
  */
 export class GravityWell extends TimedEntity {
-  // Effect radii from config
+  // Effect radii - pullRadius is constant, pullStrength varies by level
   readonly pullRadius = CONFIG.gravityWell.pullRadius;
-  readonly trapRadius = CONFIG.gravityWell.trapRadius;
   readonly visualRadius = CONFIG.gravityWell.visualRadius;
-  readonly pullStrength = CONFIG.gravityWell.pullStrength;
+  readonly pullStrength: number;
 
   // Animation state
   private rotationAngle = 0;
   private pulsePhase = 0;
   private age = 0;
 
-  constructor(x: number, y: number, duration = 8) {
+  // Pre-allocated arrays to avoid GC pressure
+  private readonly cachedArms: Vector2[][];
+  private readonly cachedRingRadii: number[] = [0, 0, 0, 0];
+  private readonly cachedPullForce: Vector2 = { x: 0, y: 0 };
+  private readonly numArms = CONFIG.visual.gravityWellSpiralArms;
+  private readonly pointsPerArm = CONFIG.visual.gravityWellPointsPerArm;
+
+  constructor(x: number, y: number, duration = 8, pullStrength = CONFIG.gravityWell.pullStrength.min) {
     super(x, y, duration);
+    this.pullStrength = pullStrength;
+
+    // Pre-allocate spiral arm arrays
+    this.cachedArms = [];
+    for (let arm = 0; arm < this.numArms; arm++) {
+      const armPoints: Vector2[] = [];
+      for (let i = 0; i < this.pointsPerArm; i++) {
+        armPoints.push({ x: 0, y: 0 });
+      }
+      this.cachedArms.push(armPoints);
+    }
   }
 
   update(dt: number): void {
@@ -35,34 +53,26 @@ export class GravityWell extends TimedEntity {
 
   /**
    * Calculate gravitational pull on a point
+   * Returns constant pull force towards center when within range
+   * Uses pre-allocated object to avoid GC pressure
    */
   getPullForce(targetPos: Vector2): Vector2 {
     const dx = this.transform.position.x - targetPos.x;
     const dy = this.transform.position.y - targetPos.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
+    // No pull outside the pull radius or at the center
     if (distance > this.pullRadius || distance < 1) {
-      return { x: 0, y: 0 };
+      this.cachedPullForce.x = 0;
+      this.cachedPullForce.y = 0;
+      return this.cachedPullForce;
     }
 
-    // Stronger pull as you get closer (inverse relationship)
-    const strength = (1 - distance / this.pullRadius) * this.pullStrength;
-
-    // Normalize and apply strength
-    return {
-      x: (dx / distance) * strength,
-      y: (dy / distance) * strength,
-    };
-  }
-
-  /**
-   * Check if a point is trapped (too close to escape)
-   */
-  isTrapped(targetPos: Vector2): boolean {
-    const dx = this.transform.position.x - targetPos.x;
-    const dy = this.transform.position.y - targetPos.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < this.trapRadius;
+    // Constant pull strength regardless of distance
+    // Normalize direction and apply constant strength
+    this.cachedPullForce.x = (dx / distance) * this.pullStrength;
+    this.cachedPullForce.y = (dy / distance) * this.pullStrength;
+    return this.cachedPullForce;
   }
 
   /**
@@ -107,47 +117,42 @@ export class GravityWell extends TimedEntity {
 
   /**
    * Generate the swirling visual effect shapes
+   * Uses pre-allocated arrays to avoid GC pressure
    */
-  getSpiralPoints(
-    numArms = CONFIG.visual.gravityWellSpiralArms,
-    pointsPerArm = CONFIG.visual.gravityWellPointsPerArm
-  ): Vector2[][] {
-    const arms: Vector2[][] = [];
+  getSpiralPoints(): Vector2[][] {
     const pulse = this.getPulse();
     const rotation = this.rotationAngle;
     const pos = this.transform.position;
 
-    for (let arm = 0; arm < numArms; arm++) {
-      const armPoints: Vector2[] = [];
-      const armOffset = (arm / numArms) * Math.PI * 2;
+    for (let arm = 0; arm < this.numArms; arm++) {
+      const armPoints = this.cachedArms[arm];
+      const armOffset = (arm / this.numArms) * Math.PI * 2;
 
-      for (let i = 0; i < pointsPerArm; i++) {
-        const t = i / pointsPerArm;
+      for (let i = 0; i < this.pointsPerArm; i++) {
+        const t = i / this.pointsPerArm;
         const r = this.visualRadius * t * pulse;
         const angle = rotation + armOffset + t * Math.PI * 2;
 
-        armPoints.push({
-          x: pos.x + Math.cos(angle) * r,
-          y: pos.y + Math.sin(angle) * r,
-        });
+        // Update existing point instead of creating new one
+        armPoints[i].x = pos.x + Math.cos(angle) * r;
+        armPoints[i].y = pos.y + Math.sin(angle) * r;
       }
-      arms.push(armPoints);
     }
 
-    return arms;
+    return this.cachedArms;
   }
 
   /**
    * Get concentric ring radii for the visual effect
+   * Uses pre-allocated array to avoid GC pressure
    */
   getRingRadii(): number[] {
     const pulse = this.getPulse();
-    return [
-      this.visualRadius * 0.3 * pulse,
-      this.visualRadius * 0.6 * pulse,
-      this.visualRadius * pulse,
-      this.visualRadius * 1.3 * pulse,
-    ];
+    this.cachedRingRadii[0] = this.visualRadius * 0.3 * pulse;
+    this.cachedRingRadii[1] = this.visualRadius * 0.6 * pulse;
+    this.cachedRingRadii[2] = this.visualRadius * pulse;
+    this.cachedRingRadii[3] = this.visualRadius * 1.3 * pulse;
+    return this.cachedRingRadii;
   }
 
   /**

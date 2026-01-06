@@ -270,6 +270,9 @@ export class Game {
   }
 
   private checkShipCollision(): void {
+    if (CONFIG.debug.disablePlayerCollision) {
+      return;
+    }
     if (!this.ship.isActive || this.ship.isInvulnerable() || this.ship.isInHyperspace()) {
       return;
     }
@@ -329,9 +332,9 @@ export class Game {
         bullet.isActive = false;
         this.data.score += this.ufo.points;
 
-        // Create debris from UFO
+        // Create debris from UFO (green to match UFO color)
         this.debris.push(
-          createDebris(this.ufo.transform.position, this.ufo.transform.rotation, this.ufo.shape)
+          createDebris(this.ufo.transform.position, this.ufo.transform.rotation, this.ufo.shape, '#0f0')
         );
 
         this.audio.playUFOExplosion();
@@ -345,9 +348,14 @@ export class Game {
   private updateGravityWell(dt: number): void {
     // Spawn timer when no gravity well exists
     if (!this.gravityWell) {
-      this.gravityWellSpawnTimer -= dt;
-      if (this.gravityWellSpawnTimer <= 0) {
+      // Spawn immediately in debug mode, otherwise use timer
+      if (CONFIG.debug.alwaysShowGravityWell) {
         this.spawnGravityWell();
+      } else {
+        this.gravityWellSpawnTimer -= dt;
+        if (this.gravityWellSpawnTimer <= 0) {
+          this.spawnGravityWell();
+        }
       }
 
       // Handle despawn sound transition
@@ -368,7 +376,8 @@ export class Game {
     if (this.ship.isActive && !this.ship.isInHyperspace()) {
       const pullForce = this.gravityWell.getPullForce(this.ship.transform.position);
 
-      // Apply the pull force to ship velocity
+      // Apply the constant pull force to ship velocity
+      // Player can fight against it with thrust, but will be slowly pulled in
       this.ship.velocity.x += pullForce.x * dt;
       this.ship.velocity.y += pullForce.y * dt;
 
@@ -376,26 +385,18 @@ export class Game {
       const distance = this.gravityWell.getDistance(this.ship.transform.position);
       const intensity = Math.max(0, 1 - distance / this.gravityWell.pullRadius);
       this.audio.updateGravityWellIntensity(intensity);
-
-      // Check if ship is trapped (too close to escape)
-      if (
-        this.gravityWell.isTrapped(this.ship.transform.position) &&
-        !this.ship.isInvulnerable()
-      ) {
-        this.audio.playGravityTrap();
-        this.shipDestroyed();
-        // Clear the gravity well after trapping the ship
-        this.gravityWell = null;
-        this.gravityWellSpawnTimer = getNextGravityWellSpawnTime();
-        return;
-      }
     }
 
     // Remove gravity well when it expires
     if (!this.gravityWell.isActive) {
       this.audio.stopGravityWellSound();
       this.gravityWell = null;
-      this.gravityWellSpawnTimer = getNextGravityWellSpawnTime();
+      // Immediately spawn another if debug mode is enabled
+      if (CONFIG.debug.alwaysShowGravityWell) {
+        this.spawnGravityWell();
+      } else {
+        this.gravityWellSpawnTimer = getNextGravityWellSpawnTime();
+      }
     }
   }
 
@@ -403,7 +404,8 @@ export class Game {
     this.gravityWell = createGravityWell(
       this.renderer.width,
       this.renderer.height,
-      this.ship.transform.position
+      this.ship.transform.position,
+      this.data.level
     );
     this.audio.playGravityWellSpawn();
     this.audio.startGravityWellSound();
@@ -513,12 +515,12 @@ export class Game {
       this.renderer.drawPoint(bullet.transform.position, 3, '#ff0');
     }
 
-    // Draw debris in cyan (same as ship)
+    // Draw debris in the color of the destroyed entity
     for (const d of this.debris) {
       for (const line of d.lines) {
         if (line.lifetime > 0) {
           const alpha = d.getAlpha(line);
-          this.renderer.drawLine(line.start, line.end, '#0ff', 2, alpha);
+          this.renderer.drawLine(line.start, line.end, d.color, 2, alpha);
         }
       }
     }
@@ -543,31 +545,20 @@ export class Game {
       const fade = this.gravityWell.getFade();
       const pos = this.gravityWell.position;
 
-      // Draw spiral arms in magenta/purple
+      // Draw spiral arms in magenta/purple - use consistent alpha for batching
       const arms = this.gravityWell.getSpiralPoints();
       for (const arm of arms) {
         this.renderer.drawPolyline(arm, '#f0f', 2, fade);
       }
 
-      // Draw concentric rings
+      // Draw concentric rings - use consistent alpha for batching (allows fast path)
       const rings = this.gravityWell.getRingRadii();
-      for (let i = 0; i < rings.length; i++) {
-        const ringAlpha = fade * (0.4 + 0.2 * (i / rings.length));
-        this.renderer.drawCircle(pos, rings[i], '#a0f', 1, ringAlpha, 16);
+      for (const radius of rings) {
+        this.renderer.drawCircle(pos, radius, '#a0f', 1, fade, 12);
       }
 
       // Draw center point
       this.renderer.drawPoint(pos, 4, '#fff', fade);
-
-      // Draw trap radius warning when ship is close
-      if (this.ship.isActive && !this.ship.isInHyperspace()) {
-        const distance = this.gravityWell.getDistance(this.ship.transform.position);
-        if (distance < this.gravityWell.pullRadius * 0.5) {
-          // Pulsing warning circle when getting too close
-          const warningAlpha = fade * (0.3 + 0.3 * Math.sin(Date.now() / 100));
-          this.renderer.drawCircle(pos, this.gravityWell.trapRadius, '#f00', 2, warningAlpha, 12);
-        }
-      }
     }
 
     // Draw ship in cyan (with blinking when invulnerable)

@@ -56,12 +56,24 @@ export function createUFO(
 }
 
 /**
+ * Calculate gravity well pull strength based on level
+ * Starts at min and increases each level up to max
+ */
+function getGravityWellPullStrength(level: number): number {
+  const { min, max } = CONFIG.gravityWell.pullStrength;
+  // Increase by ~40 per level, capped at max
+  const strengthPerLevel = 40;
+  return Math.min(max, min + (level - 1) * strengthPerLevel);
+}
+
+/**
  * Find a valid spawn position for a gravity well
  */
 export function createGravityWell(
   screenWidth: number,
   screenHeight: number,
-  avoidPosition: Vector2
+  avoidPosition: Vector2,
+  level: number
 ): GravityWell {
   let x: number, y: number;
   let attempts = 0;
@@ -88,7 +100,9 @@ export function createGravityWell(
     CONFIG.gravityWell.duration.max
   );
 
-  return new GravityWell(x, y, duration);
+  const pullStrength = getGravityWellPullStrength(level);
+
+  return new GravityWell(x, y, duration, pullStrength);
 }
 
 /**
@@ -97,9 +111,10 @@ export function createGravityWell(
 export function createDebris(
   position: Vector2,
   rotation: number,
-  shape: Vector2[]
+  shape: Vector2[],
+  color: string = '#0ff'
 ): Debris {
-  return new Debris(position, rotation, shape);
+  return new Debris(position, rotation, shape, color);
 }
 
 /**

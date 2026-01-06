@@ -17,8 +17,10 @@ export interface DebrisLine {
 export class Debris {
   lines: DebrisLine[] = [];
   isActive = true;
+  color: string;
 
-  constructor(position: Vector2, shipRotation: number, shipShape: Vector2[]) {
+  constructor(position: Vector2, shipRotation: number, shipShape: Vector2[], color: string = '#0ff') {
+    this.color = color;
     const lifetime = CONFIG.visual.debrisLifetime;
     const baseSpeed = CONFIG.visual.debrisSpeed;
 
