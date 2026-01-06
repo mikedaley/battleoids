@@ -18,7 +18,7 @@ function generateAsteroidShape(size: AsteroidSize): Shape {
   for (let i = 0; i < numVerts; i++) {
     const angle = (i / numVerts) * Math.PI * 2;
     // Vary the radius between 70% and 100% for that rocky look
-    const r = config.radius * randomRange(0.7, 1.0);
+    const r = config.radius * randomRange(0.63, 1.0);
     shape.push({
       x: Math.cos(angle) * r,
       y: Math.sin(angle) * r,

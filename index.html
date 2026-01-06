@@ -11,38 +11,38 @@
         box-sizing: border-box;
       }
 
+      html,
       body {
-        background: #000;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        background: url('/images/surround.png') center center no-repeat;
+        background-size: cover;
         display: flex;
-        flex-direction: column;
         justify-content: center;
         align-items: center;
-        min-height: 100vh;
-        overflow: hidden;
       }
 
       #game-container {
         position: relative;
-        width: 1200px;
-        height: 1500px;
-        background: url('/images/surround.png') center center no-repeat;
-        background-size: 100% 100%;
-        margin: auto;
         display: flex;
         justify-content: center;
-        align-items: flex-start;
+        align-items: center;
       }
 
       #canvas-wrapper {
         position: relative;
-        /* Position the canvas to align with the screen area in the surround */
-        margin-top: 280px;
       }
 
       #game-canvas {
         display: block;
         width: 800px;
         height: 600px;
+        /* CRT-style rounded corners */
+        border-radius: 20px;
         /* Remove the border and glow since the surround provides the frame */
         border: none;
         box-shadow: none;

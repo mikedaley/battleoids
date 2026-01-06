@@ -2,12 +2,23 @@ import type { GameData } from './types';
 import { Renderer } from './renderer';
 import { InputHandler } from './input';
 import { AudioManager } from './audio';
-import { Ship, Asteroid, Bullet, THRUSTER_SHAPES, Debris, HyperspaceParticles } from './entities';
+import {
+  Ship,
+  Asteroid,
+  Bullet,
+  THRUSTER_SHAPES,
+  Debris,
+  HyperspaceParticles,
+  UFO,
+} from './entities';
 import { checkCollision, wrapEntity } from './collision';
 import { angleToVector, randomRange } from './math';
 
 const FIRE_COOLDOWN = 0.25; // minimum seconds between shots
 const STARTING_ASTEROIDS = 4;
+const UFO_SPAWN_MIN = 15; // minimum seconds between UFO spawns
+const UFO_SPAWN_MAX = 30; // maximum seconds between UFO spawns
+const SMALL_UFO_CHANCE = 0.3; // 30% chance for small UFO (increases with level)
 
 export class Game {
   private renderer: Renderer;
@@ -19,6 +30,8 @@ export class Game {
   private bullets: Bullet[] = [];
   private debris: Debris[] = [];
   private hyperspaceParticles: HyperspaceParticles | null = null;
+  private ufo: UFO | null = null;
+  private ufoSpawnTimer = 0;
 
   private data: GameData = {
     score: 0,
@@ -149,6 +162,7 @@ export class Game {
     const currentHyperspaceState = this.ship.hyperspaceState;
     if (currentHyperspaceState !== this.lastHyperspaceState) {
       if (currentHyperspaceState === 'shrinking') {
+        this.audio.playHyperspace();
         this.hyperspaceParticles = new HyperspaceParticles(
           this.ship.transform.position,
           'shrink',
@@ -183,6 +197,9 @@ export class Game {
       wrapEntity(bullet, this.renderer.width, this.renderer.height);
     }
 
+    // Update UFO spawn timer and UFO
+    this.updateUFO(dt);
+
     // Update debris
     for (const d of this.debris) {
       d.update(dt);
@@ -194,6 +211,7 @@ export class Game {
 
     // Check collisions
     this.checkBulletCollisions();
+    this.checkUFOCollisions();
     this.checkShipCollision();
 
     // Check if level is complete
@@ -242,7 +260,71 @@ export class Game {
     for (const asteroid of this.asteroids) {
       if (checkCollision(this.ship, asteroid)) {
         this.shipDestroyed();
-        break;
+        return;
+      }
+    }
+
+    // Check collision with UFO
+    if (this.ufo && checkCollision(this.ship, this.ufo)) {
+      this.shipDestroyed();
+    }
+  }
+
+  private updateUFO(dt: number): void {
+    // Update spawn timer when no UFO is active
+    if (!this.ufo) {
+      this.ufoSpawnTimer -= dt;
+      if (this.ufoSpawnTimer <= 0) {
+        this.spawnUFO();
+      }
+      return;
+    }
+
+    // Update existing UFO
+    this.ufo.update(dt);
+
+    // Wrap vertically but not horizontally (UFO flies across screen)
+    const { y } = this.ufo.transform.position;
+    if (y < -this.ufo.radius) {
+      this.ufo.transform.position.y = this.renderer.height + this.ufo.radius;
+    } else if (y > this.renderer.height + this.ufo.radius) {
+      this.ufo.transform.position.y = -this.ufo.radius;
+    }
+
+    // Remove UFO when it exits the screen horizontally
+    if (this.ufo.isOffScreen(this.renderer.width)) {
+      this.audio.stopUFOSound();
+      this.ufo = null;
+      this.ufoSpawnTimer = randomRange(UFO_SPAWN_MIN, UFO_SPAWN_MAX);
+    }
+  }
+
+  private spawnUFO(): void {
+    // Higher levels have higher chance of small (harder) UFO
+    const smallChance = Math.min(SMALL_UFO_CHANCE + this.data.level * 0.05, 0.7);
+    const size = Math.random() < smallChance ? 'small' : 'large';
+
+    this.ufo = new UFO(this.renderer.width, this.renderer.height, size);
+    this.audio.startUFOSound(size === 'small');
+  }
+
+  private checkUFOCollisions(): void {
+    if (!this.ufo) return;
+
+    for (const bullet of this.bullets) {
+      if (checkCollision(bullet, this.ufo)) {
+        bullet.isActive = false;
+        this.data.score += this.ufo.points;
+
+        // Create debris from UFO
+        this.debris.push(
+          new Debris(this.ufo.transform.position, this.ufo.transform.rotation, this.ufo.shape)
+        );
+
+        this.audio.playUFOExplosion();
+        this.ufo = null;
+        this.ufoSpawnTimer = randomRange(UFO_SPAWN_MIN, UFO_SPAWN_MAX);
+        return;
       }
     }
   }
@@ -261,6 +343,11 @@ export class Game {
     if (this.data.lives <= 0) {
       this.data.state = 'gameOver';
       this.gameOverTimer = 10; // 10 seconds before returning to menu
+      // Stop UFO sound on game over
+      if (this.ufo) {
+        this.audio.stopUFOSound();
+        this.ufo = null;
+      }
     } else {
       this.respawnTimer = 2; // 2 seconds before respawn
     }
@@ -295,6 +382,8 @@ export class Game {
   private startGame(): void {
     this.data.state = 'playing';
     this.spawnAsteroids(STARTING_ASTEROIDS);
+    // Set initial UFO spawn timer
+    this.ufoSpawnTimer = randomRange(UFO_SPAWN_MIN, UFO_SPAWN_MAX);
   }
 
   private resetGame(): void {
@@ -309,6 +398,102 @@ export class Game {
     this.debris = [];
     this.ship.reset(this.renderer.width / 2, this.renderer.height / 2);
     this.respawnTimer = 0;
+    // Clear UFO state
+    if (this.ufo) {
+      this.audio.stopUFOSound();
+      this.ufo = null;
+    }
+    this.ufoSpawnTimer = 0;
+  }
+
+  private drawScoreGuide(): void {
+    const cx = this.renderer.width / 2;
+    const startY = 300;
+    const rowHeight = 40;
+
+    // Simple asteroid shape for display (rocky polygon)
+    const asteroidShape = [
+      { x: 0, y: -1 },
+      { x: 0.7, y: -0.7 },
+      { x: 1, y: 0 },
+      { x: 0.8, y: 0.6 },
+      { x: 0.3, y: 1 },
+      { x: -0.4, y: 0.9 },
+      { x: -1, y: 0.3 },
+      { x: -0.9, y: -0.5 },
+      { x: -0.5, y: -0.9 },
+    ];
+
+    // UFO shape for display (flying saucer)
+    const ufoShape = [
+      { x: -0.3, y: -0.8 },
+      { x: 0.3, y: -0.8 },
+      { x: 0.5, y: -0.3 },
+      { x: 1, y: 0 },
+      { x: 0.6, y: 0.4 },
+      { x: -0.6, y: 0.4 },
+      { x: -1, y: 0 },
+      { x: -0.5, y: -0.3 },
+    ];
+
+    // Section header
+    this.renderer.drawText('SCORE', cx, startY - 20, 2, '#888');
+
+    // Layout: shape on left, score on right for each row
+    const shapeX = cx - 50;
+    const scoreX = cx + 50;
+    let y = startY + 20;
+
+    // Text y is the top of the text, so offset up by half text height to center vertically
+    const textOffsetY = -8;
+
+    // Large asteroid - 20 pts
+    this.renderer.drawShape(
+      asteroidShape,
+      { position: { x: shapeX, y }, rotation: 0, scale: 18 },
+      '#f0f'
+    );
+    this.renderer.drawText('20', scoreX, y + textOffsetY, 1.8, '#fff');
+
+    y += rowHeight;
+
+    // Medium asteroid - 50 pts
+    this.renderer.drawShape(
+      asteroidShape,
+      { position: { x: shapeX, y }, rotation: 0.5, scale: 12 },
+      '#f0f'
+    );
+    this.renderer.drawText('50', scoreX, y + textOffsetY, 1.8, '#fff');
+
+    y += rowHeight;
+
+    // Small asteroid - 100 pts
+    this.renderer.drawShape(
+      asteroidShape,
+      { position: { x: shapeX, y }, rotation: 1, scale: 7 },
+      '#f0f'
+    );
+    this.renderer.drawText('100', scoreX, y + textOffsetY, 1.8, '#fff');
+
+    y += rowHeight;
+
+    // Large UFO - 200 pts
+    this.renderer.drawShape(
+      ufoShape,
+      { position: { x: shapeX, y }, rotation: 0, scale: 14 },
+      '#0f0'
+    );
+    this.renderer.drawText('200', scoreX, y + textOffsetY, 1.8, '#fff');
+
+    y += rowHeight;
+
+    // Small UFO - 1000 pts
+    this.renderer.drawShape(
+      ufoShape,
+      { position: { x: shapeX, y }, rotation: 0, scale: 9 },
+      '#0f0'
+    );
+    this.renderer.drawText('1000', scoreX, y + textOffsetY, 1.8, '#fff');
   }
 
   private drawHUD(): void {
@@ -334,13 +519,7 @@ export class Game {
       this.renderer.drawText('H: WARPING', 80, this.renderer.height - 20, 1.5, '#ff0');
     } else {
       const cooldown = Math.ceil(this.ship.hyperspaceCooldown);
-      this.renderer.drawText(
-        `H: COOLDOWN ${cooldown}S`,
-        80,
-        this.renderer.height - 20,
-        1.5,
-        '#f00'
-      );
+      this.renderer.drawText(`H: COOLDOWN ${cooldown}`, 80, this.renderer.height - 20, 1.5, '#f00');
     }
   }
 
@@ -348,41 +527,35 @@ export class Game {
     this.renderer.clear();
 
     if (this.data.state === 'start') {
-      // Draw start screen with vector text
-      this.renderer.drawText(
-        'BATTLEOIDS',
-        this.renderer.width / 2,
-        this.renderer.height / 2 - 80,
-        6
-      );
-      this.renderer.drawText(
-        'PRESS SPACE TO START',
-        this.renderer.width / 2,
-        this.renderer.height / 2,
-        3,
-        '#0ff'
-      );
-      this.renderer.drawText(
-        'ARROWS OR WASD TO MOVE',
-        this.renderer.width / 2,
-        this.renderer.height / 2 + 60,
-        2,
-        '#f0f'
-      );
-      this.renderer.drawText(
-        'SPACE TO SHOOT',
-        this.renderer.width / 2,
-        this.renderer.height / 2 + 90,
-        2,
-        '#f0f'
-      );
-      this.renderer.drawText(
-        'H FOR HYPERSPACE',
-        this.renderer.width / 2,
-        this.renderer.height / 2 + 120,
-        2,
-        '#f0f'
-      );
+      const cx = this.renderer.width / 2;
+
+      // Title
+      this.renderer.drawText('BATTLEOIDS', cx, 80, 6);
+
+      // Controls section - spread across the width
+      this.renderer.drawText('CONTROLS', cx, 170, 2, '#888');
+
+      const colLeft = 140;
+      const colCenter = cx;
+      const colRight = this.renderer.width - 140;
+      const keyY = 210;
+      const labelY = 235;
+
+      this.renderer.drawText('ARROWS / WASD', colLeft, keyY, 1.8, '#f0f');
+      this.renderer.drawText('MOVE', colLeft, labelY, 1.5, '#888');
+
+      this.renderer.drawText('H', colCenter, keyY, 1.8, '#f0f');
+      this.renderer.drawText('HYPERSPACE', colCenter, labelY, 1.5, '#888');
+
+      this.renderer.drawText('SPACE', colRight, keyY, 1.8, '#f0f');
+      this.renderer.drawText('FIRE', colRight, labelY, 1.5, '#888');
+
+      // Score guide
+      this.drawScoreGuide();
+
+      // Start prompt
+      this.renderer.drawText('PRESS SPACE TO START', cx, this.renderer.height - 60, 3, '#0ff');
+
       this.renderer.flush();
       return;
     }
@@ -415,6 +588,11 @@ export class Game {
           this.renderer.drawPoint(particle.position, 2, '#fff', particle.alpha);
         }
       }
+    }
+
+    // Draw UFO in green
+    if (this.ufo) {
+      this.renderer.drawShape(this.ufo.shape, this.ufo.transform, '#0f0');
     }
 
     // Draw ship in cyan (with blinking when invulnerable)
