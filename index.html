@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Battleoids</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #000;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+
+      #game-container {
+        position: relative;
+      }
+
+      #game-canvas {
+        border: 2px solid #0ff;
+        box-shadow:
+          0 0 20px #0ff,
+          inset 0 0 20px rgba(0, 255, 255, 0.1);
+      }
+
+      #fps-counter {
+        position: absolute;
+        bottom: -25px;
+        right: 0;
+        color: #666;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+      }
+    </style>
+    <script type="module" crossorigin src="/battleoids/assets/index-BtoBH5ed.js"></script>
+  </head>
+  <body>
+    <div id="game-container">
+      <canvas id="game-canvas"></canvas>
+      <div id="fps-counter">FPS: --</div>
+    </div>
+  </body>
+</html>
