@@ -39,4 +39,5 @@ export interface KeyState {
   right: boolean;
   thrust: boolean;
   fire: boolean;
+  hyperspace: boolean;
 }

@@ -23,13 +23,29 @@
 
       #game-container {
         position: relative;
+        width: 1200px;
+        height: 1500px;
+        background: url('/images/surround.png') center center no-repeat;
+        background-size: 100% 100%;
+        margin: auto;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      #canvas-wrapper {
+        position: relative;
+        /* Position the canvas to align with the screen area in the surround */
+        margin-top: 280px;
       }
 
       #game-canvas {
-        border: 2px solid #0ff;
-        box-shadow:
-          0 0 20px #0ff,
-          inset 0 0 20px rgba(0, 255, 255, 0.1);
+        display: block;
+        width: 800px;
+        height: 600px;
+        /* Remove the border and glow since the surround provides the frame */
+        border: none;
+        box-shadow: none;
       }
 
       #fps-counter {
@@ -44,8 +60,10 @@
   </head>
   <body>
     <div id="game-container">
-      <canvas id="game-canvas"></canvas>
-      <div id="fps-counter">FPS: --</div>
+      <div id="canvas-wrapper">
+        <canvas id="game-canvas"></canvas>
+        <div id="fps-counter">FPS: --</div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

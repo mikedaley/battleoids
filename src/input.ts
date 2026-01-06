@@ -8,12 +8,14 @@ export class InputHandler {
     right: false,
     thrust: false,
     fire: false,
+    hyperspace: false,
   };
 
   private firePressed = false;
   private startPressed = false;
   private spaceWasReleased = true; // Require release before new start press
   private glowTogglePressed = false;
+  private hyperspacePressed = false;
 
   constructor() {
     window.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -65,6 +67,12 @@ export class InputHandler {
           this.glowTogglePressed = true;
         }
         break;
+      case 'KeyH':
+        this.keys.hyperspace = isDown;
+        if (isDown) {
+          this.hyperspacePressed = true;
+        }
+        break;
     }
   }
 
@@ -94,6 +102,15 @@ export class InputHandler {
   consumeGlowTogglePress(): boolean {
     if (this.glowTogglePressed) {
       this.glowTogglePressed = false;
+      return true;
+    }
+    return false;
+  }
+
+  // Check if player pressed hyperspace
+  consumeHyperspacePress(): boolean {
+    if (this.hyperspacePressed) {
+      this.hyperspacePressed = false;
       return true;
     }
     return false;

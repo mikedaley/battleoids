@@ -2,7 +2,7 @@ import type { GameData } from './types';
 import { Renderer } from './renderer';
 import { InputHandler } from './input';
 import { AudioManager } from './audio';
-import { Ship, Asteroid, Bullet, THRUSTER_SHAPES, Debris } from './entities';
+import { Ship, Asteroid, Bullet, THRUSTER_SHAPES, Debris, HyperspaceParticles } from './entities';
 import { checkCollision, wrapEntity } from './collision';
 import { angleToVector, randomRange } from './math';
 
@@ -18,6 +18,7 @@ export class Game {
   private asteroids: Asteroid[] = [];
   private bullets: Bullet[] = [];
   private debris: Debris[] = [];
+  private hyperspaceParticles: HyperspaceParticles | null = null;
 
   private data: GameData = {
     score: 0,
@@ -30,6 +31,7 @@ export class Game {
   private lastTime = 0;
   private respawnTimer = 0;
   private gameOverTimer = 0;
+  private lastHyperspaceState: string = 'idle';
 
   // FPS tracking
   private frameCount = 0;
@@ -131,11 +133,45 @@ export class Game {
       if (this.input.consumeFirePress() && this.fireCooldown <= 0) {
         this.fire();
       }
+      if (this.input.consumeHyperspacePress()) {
+        // Generate random position
+        const targetX = randomRange(0, this.renderer.width);
+        const targetY = randomRange(0, this.renderer.height);
+        this.ship.activateHyperspace(targetX, targetY);
+      }
     }
 
     // Update entities
     this.ship.update(dt);
     wrapEntity(this.ship, this.renderer.width, this.renderer.height);
+
+    // Check for hyperspace state changes and create particles
+    const currentHyperspaceState = this.ship.hyperspaceState;
+    if (currentHyperspaceState !== this.lastHyperspaceState) {
+      if (currentHyperspaceState === 'shrinking') {
+        this.hyperspaceParticles = new HyperspaceParticles(
+          this.ship.transform.position,
+          'shrink',
+          24
+        );
+      } else if (currentHyperspaceState === 'expanding') {
+        this.hyperspaceParticles = new HyperspaceParticles(
+          this.ship.transform.position,
+          'expand',
+          24
+        );
+      }
+      this.lastHyperspaceState = currentHyperspaceState;
+    }
+
+    // Update hyperspace particles
+    if (this.hyperspaceParticles) {
+      const progress = this.ship.getHyperspaceProgress();
+      this.hyperspaceParticles.update(progress);
+      if (!this.hyperspaceParticles.isActive) {
+        this.hyperspaceParticles = null;
+      }
+    }
 
     for (const asteroid of this.asteroids) {
       asteroid.update(dt);
@@ -199,7 +235,7 @@ export class Game {
   }
 
   private checkShipCollision(): void {
-    if (!this.ship.isActive || this.ship.isInvulnerable()) {
+    if (!this.ship.isActive || this.ship.isInvulnerable() || this.ship.isInHyperspace()) {
       return;
     }
 
@@ -291,6 +327,21 @@ export class Game {
       1.5,
       this.renderer.glowEnabled ? '#0f0' : '#666'
     );
+    // Draw hyperspace status
+    if (this.ship.canHyperspace()) {
+      this.renderer.drawText('H: HYPERSPACE READY', 80, this.renderer.height - 20, 1.5, '#0f0');
+    } else if (this.ship.isInHyperspace()) {
+      this.renderer.drawText('H: WARPING', 80, this.renderer.height - 20, 1.5, '#ff0');
+    } else {
+      const cooldown = Math.ceil(this.ship.hyperspaceCooldown);
+      this.renderer.drawText(
+        `H: COOLDOWN ${cooldown}S`,
+        80,
+        this.renderer.height - 20,
+        1.5,
+        '#f00'
+      );
+    }
   }
 
   private render(): void {
@@ -325,6 +376,13 @@ export class Game {
         2,
         '#f0f'
       );
+      this.renderer.drawText(
+        'H FOR HYPERSPACE',
+        this.renderer.width / 2,
+        this.renderer.height / 2 + 120,
+        2,
+        '#f0f'
+      );
       this.renderer.flush();
       return;
     }
@@ -349,15 +407,32 @@ export class Game {
       }
     }
 
+    // Draw hyperspace particles in white
+    if (this.hyperspaceParticles) {
+      for (const particle of this.hyperspaceParticles.particles) {
+        if (particle.alpha > 0) {
+          // Draw particles with alpha
+          this.renderer.drawPoint(particle.position, 2, '#fff', particle.alpha);
+        }
+      }
+    }
+
     // Draw ship in cyan (with blinking when invulnerable)
     if (this.ship.isActive) {
       const shouldDraw = !this.ship.isInvulnerable() || Math.floor(Date.now() / 100) % 2 === 0;
+      const hyperspaceScale = this.ship.getHyperspaceScale();
 
-      if (shouldDraw) {
-        this.renderer.drawShape(this.ship.shape, this.ship.transform, '#0ff');
+      // Don't draw during warp phase (scale = 0)
+      if (shouldDraw && hyperspaceScale > 0) {
+        // Apply hyperspace scale to the ship transform
+        const scaledTransform = {
+          ...this.ship.transform,
+          scale: this.ship.transform.scale * hyperspaceScale,
+        };
+        this.renderer.drawShape(this.ship.shape, scaledTransform, '#0ff');
 
-        // Draw thruster flame when thrusting - randomly pick a flame shape for flicker
-        if (this.ship.isThrusting) {
+        // Draw thruster flame when thrusting (not during hyperspace)
+        if (this.ship.isThrusting && !this.ship.isInHyperspace()) {
           const flameIndex = Math.floor(Math.random() * THRUSTER_SHAPES.length);
           this.renderer.drawShape(THRUSTER_SHAPES[flameIndex], this.ship.transform, '#f80');
         }

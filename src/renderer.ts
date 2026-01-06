@@ -79,14 +79,14 @@ export class Renderer {
   }
 
   // Queue a point for batched rendering
-  drawPoint(position: Vector2, radius = 3, color = '#0ff'): void {
+  drawPoint(position: Vector2, radius = 3, color = '#0ff', alpha = 1): void {
     const key = `${color}-${radius}`;
     let batch = this.pointBatches.get(key);
     if (!batch) {
       batch = { points: [], color, radius };
       this.pointBatches.set(key, batch);
     }
-    batch.points.push({ pos: position, alpha: 1 });
+    batch.points.push({ pos: position, alpha });
   }
 
   // Queue text for batched rendering
@@ -206,30 +206,68 @@ export class Renderer {
     const { points, color, radius } = batch;
     if (points.length === 0) return;
 
-    // Glow pass (optional)
-    if (this.glowEnabled) {
-      this.ctx.fillStyle = color;
-      this.ctx.shadowColor = color;
-      this.ctx.shadowBlur = this.glowIntensity;
+    // Check if all points have the same alpha
+    const allSameAlpha = points.every((p) => p.alpha === points[0].alpha);
+
+    if (allSameAlpha) {
+      // Fast path: single draw call for all points
+      this.ctx.globalAlpha = points[0].alpha;
+
+      // Glow pass (optional)
+      if (this.glowEnabled) {
+        this.ctx.fillStyle = color;
+        this.ctx.shadowColor = color;
+        this.ctx.shadowBlur = this.glowIntensity;
+
+        this.ctx.beginPath();
+        for (const p of points) {
+          this.ctx.moveTo(p.pos.x + radius, p.pos.y);
+          this.ctx.arc(p.pos.x, p.pos.y, radius, 0, Math.PI * 2);
+        }
+        this.ctx.fill();
+      }
+
+      // Bright center pass
+      this.ctx.shadowBlur = 0;
+      this.ctx.fillStyle = this.glowEnabled ? '#fff' : color;
 
       this.ctx.beginPath();
       for (const p of points) {
-        this.ctx.moveTo(p.pos.x + radius, p.pos.y);
-        this.ctx.arc(p.pos.x, p.pos.y, radius, 0, Math.PI * 2);
+        const centerRadius = this.glowEnabled ? radius * 0.5 : radius;
+        this.ctx.moveTo(p.pos.x + centerRadius, p.pos.y);
+        this.ctx.arc(p.pos.x, p.pos.y, centerRadius, 0, Math.PI * 2);
       }
       this.ctx.fill();
-    }
 
-    // Bright center pass
-    this.ctx.shadowBlur = 0;
-    this.ctx.fillStyle = this.glowEnabled ? '#fff' : color;
+      this.ctx.globalAlpha = 1;
+    } else {
+      // Slow path: need to handle different alphas
+      for (const p of points) {
+        this.ctx.globalAlpha = p.alpha;
 
-    this.ctx.beginPath();
-    for (const p of points) {
-      const centerRadius = this.glowEnabled ? radius * 0.5 : radius;
-      this.ctx.moveTo(p.pos.x + centerRadius, p.pos.y);
-      this.ctx.arc(p.pos.x, p.pos.y, centerRadius, 0, Math.PI * 2);
+        // Glow pass (optional)
+        if (this.glowEnabled) {
+          this.ctx.fillStyle = color;
+          this.ctx.shadowColor = color;
+          this.ctx.shadowBlur = this.glowIntensity;
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(p.pos.x + radius, p.pos.y);
+          this.ctx.arc(p.pos.x, p.pos.y, radius, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+
+        // Bright center pass
+        this.ctx.shadowBlur = 0;
+        this.ctx.fillStyle = this.glowEnabled ? '#fff' : color;
+
+        this.ctx.beginPath();
+        const centerRadius = this.glowEnabled ? radius * 0.5 : radius;
+        this.ctx.moveTo(p.pos.x + centerRadius, p.pos.y);
+        this.ctx.arc(p.pos.x, p.pos.y, centerRadius, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+      this.ctx.globalAlpha = 1;
     }
-    this.ctx.fill();
   }
 }

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(rsync:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd configurable glow effect with keyboard toggle\n\n- Add glowEnabled and glowIntensity properties to renderer\n- Press G to toggle glow effect on/off during gameplay\n- Display glow status indicator in HUD\n- Add npm deploy script for GitHub Pages deployment\n- Configure vite base path for GitHub Pages\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(npm run deploy:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
