@@ -22,6 +22,10 @@ export class Renderer {
   readonly width: number;
   readonly height: number;
 
+  // Glow effect configuration
+  public glowEnabled: boolean = true;
+  public glowIntensity: number = 1;
+
   // Batches keyed by color+lineWidth
   private lineBatches: Map<string, LineBatch> = new Map();
   private pointBatches: Map<string, PointBatch> = new Map();
@@ -40,8 +44,11 @@ export class Renderer {
   }
 
   clear(): void {
+    // Use semi-transparent black for retro motion blur effect
+    this.ctx.globalAlpha = 1.0;
     this.ctx.fillStyle = '#000';
     this.ctx.fillRect(0, 0, this.width, this.height);
+    this.ctx.globalAlpha = 1;
     this.lineBatches.clear();
     this.pointBatches.clear();
   }
@@ -133,21 +140,23 @@ export class Renderer {
     if (allSameAlpha) {
       // Fast path: single draw call for all segments
       this.ctx.globalAlpha = segments[0].alpha;
-
-      // Glow pass
       this.ctx.strokeStyle = color;
-      this.ctx.lineWidth = lineWidth + 1;
       this.ctx.lineCap = 'round';
       this.ctx.lineJoin = 'round';
-      this.ctx.shadowColor = color;
-      this.ctx.shadowBlur = 8;
 
-      this.ctx.beginPath();
-      for (const seg of segments) {
-        this.ctx.moveTo(seg.start.x, seg.start.y);
-        this.ctx.lineTo(seg.end.x, seg.end.y);
+      // Glow pass (optional)
+      if (this.glowEnabled) {
+        this.ctx.lineWidth = lineWidth + 1;
+        this.ctx.shadowColor = color;
+        this.ctx.shadowBlur = this.glowIntensity;
+
+        this.ctx.beginPath();
+        for (const seg of segments) {
+          this.ctx.moveTo(seg.start.x, seg.start.y);
+          this.ctx.lineTo(seg.end.x, seg.end.y);
+        }
+        this.ctx.stroke();
       }
-      this.ctx.stroke();
 
       // Solid pass
       this.ctx.shadowBlur = 0;
@@ -170,16 +179,18 @@ export class Renderer {
       for (const seg of segments) {
         this.ctx.globalAlpha = seg.alpha;
 
-        // Glow
-        this.ctx.lineWidth = lineWidth + 1;
-        this.ctx.shadowColor = color;
-        this.ctx.shadowBlur = 8;
-        this.ctx.beginPath();
-        this.ctx.moveTo(seg.start.x, seg.start.y);
-        this.ctx.lineTo(seg.end.x, seg.end.y);
-        this.ctx.stroke();
+        // Glow pass (optional)
+        if (this.glowEnabled) {
+          this.ctx.lineWidth = lineWidth + 1;
+          this.ctx.shadowColor = color;
+          this.ctx.shadowBlur = this.glowIntensity;
+          this.ctx.beginPath();
+          this.ctx.moveTo(seg.start.x, seg.start.y);
+          this.ctx.lineTo(seg.end.x, seg.end.y);
+          this.ctx.stroke();
+        }
 
-        // Solid
+        // Solid pass
         this.ctx.shadowBlur = 0;
         this.ctx.lineWidth = lineWidth;
         this.ctx.beginPath();
@@ -195,26 +206,29 @@ export class Renderer {
     const { points, color, radius } = batch;
     if (points.length === 0) return;
 
-    // Glow pass
-    this.ctx.fillStyle = color;
-    this.ctx.shadowColor = color;
-    this.ctx.shadowBlur = 8;
+    // Glow pass (optional)
+    if (this.glowEnabled) {
+      this.ctx.fillStyle = color;
+      this.ctx.shadowColor = color;
+      this.ctx.shadowBlur = this.glowIntensity;
 
-    this.ctx.beginPath();
-    for (const p of points) {
-      this.ctx.moveTo(p.pos.x + radius, p.pos.y);
-      this.ctx.arc(p.pos.x, p.pos.y, radius, 0, Math.PI * 2);
+      this.ctx.beginPath();
+      for (const p of points) {
+        this.ctx.moveTo(p.pos.x + radius, p.pos.y);
+        this.ctx.arc(p.pos.x, p.pos.y, radius, 0, Math.PI * 2);
+      }
+      this.ctx.fill();
     }
-    this.ctx.fill();
 
     // Bright center pass
     this.ctx.shadowBlur = 0;
-    this.ctx.fillStyle = '#fff';
+    this.ctx.fillStyle = this.glowEnabled ? '#fff' : color;
 
     this.ctx.beginPath();
     for (const p of points) {
-      this.ctx.moveTo(p.pos.x + radius * 0.5, p.pos.y);
-      this.ctx.arc(p.pos.x, p.pos.y, radius * 0.5, 0, Math.PI * 2);
+      const centerRadius = this.glowEnabled ? radius * 0.5 : radius;
+      this.ctx.moveTo(p.pos.x + centerRadius, p.pos.y);
+      this.ctx.arc(p.pos.x, p.pos.y, centerRadius, 0, Math.PI * 2);
     }
     this.ctx.fill();
   }

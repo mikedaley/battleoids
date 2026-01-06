@@ -13,6 +13,7 @@ export class InputHandler {
   private firePressed = false;
   private startPressed = false;
   private spaceWasReleased = true; // Require release before new start press
+  private glowTogglePressed = false;
 
   constructor() {
     window.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -59,6 +60,11 @@ export class InputHandler {
           this.spaceWasReleased = true;
         }
         break;
+      case 'KeyG':
+        if (isDown) {
+          this.glowTogglePressed = true;
+        }
+        break;
     }
   }
 
@@ -79,6 +85,15 @@ export class InputHandler {
   consumeStartPress(): boolean {
     if (this.startPressed) {
       this.startPressed = false;
+      return true;
+    }
+    return false;
+  }
+
+  // Check if player pressed glow toggle
+  consumeGlowTogglePress(): boolean {
+    if (this.glowTogglePressed) {
+      this.glowTogglePressed = false;
       return true;
     }
     return false;

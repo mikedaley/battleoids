@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  base: '/battleoids/',
   root: '.',
   publicDir: 'public',
   build: {

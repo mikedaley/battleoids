@@ -73,6 +73,11 @@ export class Game {
   }
 
   private update(dt: number): void {
+    // Handle glow toggle in any state
+    if (this.input.consumeGlowTogglePress()) {
+      this.renderer.glowEnabled = !this.renderer.glowEnabled;
+    }
+
     if (this.data.state === 'start') {
       if (this.input.consumeStartPress()) {
         this.startGame();
@@ -277,6 +282,15 @@ export class Game {
     this.renderer.drawText(`LIVES: ${this.data.lives}`, this.renderer.width / 2, 25, 2, '#0ff');
     // Draw level on the right
     this.renderer.drawText(`LEVEL: ${this.data.level}`, this.renderer.width - 100, 25, 2, '#0ff');
+    // Draw glow status in bottom right
+    const glowStatus = this.renderer.glowEnabled ? 'ON' : 'OFF';
+    this.renderer.drawText(
+      `G: GLOW ${glowStatus}`,
+      this.renderer.width - 80,
+      this.renderer.height - 20,
+      1.5,
+      this.renderer.glowEnabled ? '#0f0' : '#666'
+    );
   }
 
   private render(): void {
