@@ -4,3 +4,4 @@ export { Bullet } from './bullet';
 export { Debris } from './debris';
 export { HyperspaceParticles } from './hyperspaceParticle';
 export { UFO } from './ufo';
+export { GravityWell } from './gravityWell';

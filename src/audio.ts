@@ -285,4 +285,161 @@ export class AudioManager {
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.5);
   }
+
+  // Gravity well - deep pulsing hum that intensifies as player gets closer
+  private gravityOscillator: OscillatorNode | null = null;
+  private gravityGain: GainNode | null = null;
+  private gravityLfo: OscillatorNode | null = null;
+
+  startGravityWellSound(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    // Stop any existing gravity sound
+    this.stopGravityWellSound();
+
+    // Create deep pulsing oscillator
+    this.gravityOscillator = ctx.createOscillator();
+    this.gravityGain = ctx.createGain();
+    this.gravityLfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+
+    // LFO creates pulsing effect
+    this.gravityLfo.frequency.value = 2; // Slow pulse
+    lfoGain.gain.value = 20;
+
+    this.gravityLfo.connect(lfoGain);
+    lfoGain.connect(this.gravityOscillator.frequency);
+
+    this.gravityOscillator.type = 'sine';
+    this.gravityOscillator.frequency.value = 60; // Deep bass
+
+    this.gravityOscillator.connect(this.gravityGain);
+    this.gravityGain.connect(ctx.destination);
+    this.gravityGain.gain.value = 0.1;
+
+    this.gravityLfo.start();
+    this.gravityOscillator.start();
+  }
+
+  // Update gravity well sound intensity based on distance (0 = far, 1 = close)
+  updateGravityWellIntensity(intensity: number): void {
+    if (this.gravityGain) {
+      // Volume increases as player gets closer
+      this.gravityGain.gain.value = 0.05 + intensity * 0.25;
+    }
+    if (this.gravityLfo) {
+      // Pulse speed increases as player gets closer
+      this.gravityLfo.frequency.value = 2 + intensity * 6;
+    }
+  }
+
+  stopGravityWellSound(): void {
+    if (this.gravityOscillator) {
+      this.gravityOscillator.stop();
+      this.gravityOscillator.disconnect();
+      this.gravityOscillator = null;
+    }
+    if (this.gravityLfo) {
+      this.gravityLfo.stop();
+      this.gravityLfo.disconnect();
+      this.gravityLfo = null;
+    }
+    if (this.gravityGain) {
+      this.gravityGain.disconnect();
+      this.gravityGain = null;
+    }
+  }
+
+  playGravityWellSpawn(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    // Eerie rising tone when gravity well appears
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(40, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.8);
+
+    gain.gain.setValueAtTime(0.01, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.3);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.8);
+  }
+
+  playGravityWellDespawn(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    // Descending tone when gravity well disappears
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.6);
+
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.6);
+  }
+
+  playGravityTrap(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    // Stop the ambient sound
+    this.stopGravityWellSound();
+
+    // Crushing/imploding sound when ship is trapped
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const noise = ctx.createBufferSource();
+    const noiseGain = ctx.createGain();
+
+    // Create noise buffer
+    const bufferSize = ctx.sampleRate * 0.5;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+    noise.buffer = buffer;
+
+    // Main tone - descending crush
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(200, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 0.5);
+
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+
+    // Noise component
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 500;
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noiseGain.gain.setValueAtTime(0.3, ctx.currentTime);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+    noise.start(ctx.currentTime);
+  }
 }

@@ -101,6 +101,41 @@ export class Renderer {
     }
   }
 
+  // Draw a circle as line segments
+  drawCircle(
+    center: Vector2,
+    radius: number,
+    color = '#0ff',
+    lineWidth = 2,
+    alpha = 1,
+    segments = 24
+  ): void {
+    const angleStep = (Math.PI * 2) / segments;
+
+    for (let i = 0; i < segments; i++) {
+      const angle1 = i * angleStep;
+      const angle2 = (i + 1) * angleStep;
+
+      const start = {
+        x: center.x + Math.cos(angle1) * radius,
+        y: center.y + Math.sin(angle1) * radius,
+      };
+      const end = {
+        x: center.x + Math.cos(angle2) * radius,
+        y: center.y + Math.sin(angle2) * radius,
+      };
+
+      this.addLineToBatch(start, end, color, lineWidth, alpha);
+    }
+  }
+
+  // Draw a polyline (connected line segments, not closed)
+  drawPolyline(points: Vector2[], color = '#0ff', lineWidth = 2, alpha = 1): void {
+    for (let i = 0; i < points.length - 1; i++) {
+      this.addLineToBatch(points[i], points[i + 1], color, lineWidth, alpha);
+    }
+  }
+
   private addLineToBatch(
     start: Vector2,
     end: Vector2,

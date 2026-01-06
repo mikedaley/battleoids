@@ -1,17 +1,14 @@
-import type { Entity, Shape, Vector2 } from '../types';
-import { add, scale, randomRange } from '../math';
+import type { Shape } from '../types';
+import { randomRange } from '../math';
+import { CONFIG } from '../config';
+import { ScoreableEntity } from './baseEntity';
 
 // UFO sizes - small is faster and worth more points but harder to hit
 export type UFOSize = 'large' | 'small';
 
-const SIZE_CONFIG = {
-  large: { radius: 20, speed: 100, points: 200, shootCooldown: 2.0 },
-  small: { radius: 12, speed: 150, points: 1000, shootCooldown: 1.0 },
-};
-
 // Classic flying saucer shape
 function generateUFOShape(size: UFOSize): Shape {
-  const config = SIZE_CONFIG[size];
+  const config = CONFIG.ufo[size];
   const r = config.radius;
   const h = r * 0.4; // height of dome
 
@@ -35,19 +32,8 @@ function generateUFOShape(size: UFOSize): Shape {
   ];
 }
 
-export class UFO implements Entity {
-  transform = {
-    position: { x: 0, y: 0 },
-    rotation: 0,
-    scale: 1,
-  };
-  velocity: Vector2 = { x: 0, y: 0 };
-  angularVelocity = 0;
-  shape: Shape;
-  radius: number;
-  isActive = true;
+export class UFO extends ScoreableEntity {
   size: UFOSize;
-  points: number;
 
   private directionChangeTimer = 0;
   private verticalDirection = 0;
@@ -55,12 +41,12 @@ export class UFO implements Entity {
   private horizontalDirection: number; // 1 = right, -1 = left
 
   constructor(screenWidth: number, screenHeight: number, size: UFOSize = 'large') {
-    this.size = size;
-    const config = SIZE_CONFIG[size];
+    const config = CONFIG.ufo[size];
+    super(0, 0, config.points); // Position set below
 
+    this.size = size;
     this.shape = generateUFOShape(size);
     this.radius = config.radius;
-    this.points = config.points;
     this.baseSpeed = config.speed;
 
     // Spawn on left or right edge
@@ -80,7 +66,10 @@ export class UFO implements Entity {
 
     // Random initial vertical direction
     this.verticalDirection = randomRange(-1, 1);
-    this.directionChangeTimer = randomRange(0.5, 1.5);
+    this.directionChangeTimer = randomRange(
+      CONFIG.ufo.directionChangeInterval.min,
+      CONFIG.ufo.directionChangeInterval.max
+    );
   }
 
   update(dt: number): void {
@@ -88,16 +77,20 @@ export class UFO implements Entity {
     this.directionChangeTimer -= dt;
     if (this.directionChangeTimer <= 0) {
       this.verticalDirection = randomRange(-1, 1);
-      this.directionChangeTimer = randomRange(0.5, 1.5);
+      this.directionChangeTimer = randomRange(
+        CONFIG.ufo.directionChangeInterval.min,
+        CONFIG.ufo.directionChangeInterval.max
+      );
     }
 
     // Update velocity with vertical component
     this.velocity = {
       x: this.baseSpeed * this.horizontalDirection,
-      y: this.baseSpeed * 0.3 * this.verticalDirection,
+      y: this.baseSpeed * CONFIG.ufo.verticalSpeedFactor * this.verticalDirection,
     };
 
-    this.transform.position = add(this.transform.position, scale(this.velocity, dt));
+    // Use parent's physics update
+    super.update(dt);
   }
 
   // Check if UFO has left the screen (for cleanup)

@@ -1,5 +1,6 @@
 import type { Entity, Shape, Vector2 } from '../types';
 import { add, scale, angleToVector, magnitude } from '../math';
+import { CONFIG } from '../config';
 
 // The player's ship - a classic triangle design
 
@@ -36,17 +37,6 @@ export const THRUSTER_SHAPES: Shape[] = [
   ],
 ];
 
-const ROTATION_SPEED = 5; // radians per second
-const THRUST_POWER = 200; // acceleration in pixels per second squared
-const MAX_SPEED = 400;
-
-// Hyperspace constants
-const HYPERSPACE_SHRINK_TIME = 0.3; // seconds
-const HYPERSPACE_WARP_TIME = 0.2; // seconds
-const HYPERSPACE_EXPAND_TIME = 0.3; // seconds
-const HYPERSPACE_COOLDOWN = 5; // seconds
-const HYPERSPACE_INVULNERABILITY = 2; // seconds after reappearing
-
 export type HyperspaceState = 'idle' | 'shrinking' | 'warping' | 'expanding';
 
 export class Ship implements Entity {
@@ -58,7 +48,7 @@ export class Ship implements Entity {
   velocity: Vector2 = { x: 0, y: 0 };
   angularVelocity = 0;
   shape = SHIP_SHAPE;
-  radius = 12;
+  radius = CONFIG.ship.radius;
   isActive = true;
 
   isThrusting = false;
@@ -79,27 +69,27 @@ export class Ship implements Entity {
     this.transform.rotation = 0;
     this.velocity = { x: 0, y: 0 };
     this.isActive = true;
-    this.invulnerableTime = 3; // 3 seconds of invulnerability on respawn
+    this.invulnerableTime = CONFIG.ship.invulnerabilityOnSpawn;
   }
 
   rotateLeft(dt: number): void {
-    this.transform.rotation -= ROTATION_SPEED * dt;
+    this.transform.rotation -= CONFIG.ship.rotationSpeed * dt;
   }
 
   rotateRight(dt: number): void {
-    this.transform.rotation += ROTATION_SPEED * dt;
+    this.transform.rotation += CONFIG.ship.rotationSpeed * dt;
   }
 
   thrust(dt: number): void {
     this.isThrusting = true;
     const direction = angleToVector(this.transform.rotation);
-    const acceleration = scale(direction, THRUST_POWER * dt);
+    const acceleration = scale(direction, CONFIG.ship.thrustPower * dt);
     this.velocity = add(this.velocity, acceleration);
 
     // Cap the speed
     const speed = magnitude(this.velocity);
-    if (speed > MAX_SPEED) {
-      this.velocity = scale(this.velocity, MAX_SPEED / speed);
+    if (speed > CONFIG.ship.maxSpeed) {
+      this.velocity = scale(this.velocity, CONFIG.ship.maxSpeed / speed);
     }
   }
 
@@ -110,13 +100,13 @@ export class Ship implements Entity {
 
       switch (this.hyperspaceState) {
         case 'shrinking':
-          if (this.hyperspaceTimer >= HYPERSPACE_SHRINK_TIME) {
+          if (this.hyperspaceTimer >= CONFIG.hyperspace.shrinkTime) {
             this.hyperspaceState = 'warping';
             this.hyperspaceTimer = 0;
           }
           break;
         case 'warping':
-          if (this.hyperspaceTimer >= HYPERSPACE_WARP_TIME) {
+          if (this.hyperspaceTimer >= CONFIG.hyperspace.warpTime) {
             // Teleport to new position
             this.transform.position = { ...this.hyperspaceTargetPosition };
             this.velocity = { x: 0, y: 0 }; // Reset velocity
@@ -125,10 +115,10 @@ export class Ship implements Entity {
           }
           break;
         case 'expanding':
-          if (this.hyperspaceTimer >= HYPERSPACE_EXPAND_TIME) {
+          if (this.hyperspaceTimer >= CONFIG.hyperspace.expandTime) {
             this.hyperspaceState = 'idle';
             this.hyperspaceTimer = 0;
-            this.hyperspaceCooldown = HYPERSPACE_COOLDOWN;
+            this.hyperspaceCooldown = CONFIG.hyperspace.cooldown;
           }
           break;
       }
@@ -172,7 +162,10 @@ export class Ship implements Entity {
     this.hyperspaceTargetPosition = { x: targetX, y: targetY };
     this.invulnerableTime = Math.max(
       this.invulnerableTime,
-      HYPERSPACE_SHRINK_TIME + HYPERSPACE_WARP_TIME + HYPERSPACE_EXPAND_TIME + HYPERSPACE_INVULNERABILITY
+      CONFIG.hyperspace.shrinkTime +
+        CONFIG.hyperspace.warpTime +
+        CONFIG.hyperspace.expandTime +
+        CONFIG.hyperspace.invulnerability
     );
   }
 
@@ -180,11 +173,11 @@ export class Ship implements Entity {
     // Returns 0-1 progress through the current hyperspace phase
     switch (this.hyperspaceState) {
       case 'shrinking':
-        return this.hyperspaceTimer / HYPERSPACE_SHRINK_TIME;
+        return this.hyperspaceTimer / CONFIG.hyperspace.shrinkTime;
       case 'warping':
-        return this.hyperspaceTimer / HYPERSPACE_WARP_TIME;
+        return this.hyperspaceTimer / CONFIG.hyperspace.warpTime;
       case 'expanding':
-        return this.hyperspaceTimer / HYPERSPACE_EXPAND_TIME;
+        return this.hyperspaceTimer / CONFIG.hyperspace.expandTime;
       default:
         return 0;
     }

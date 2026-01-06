@@ -1,5 +1,6 @@
 import type { Vector2 } from '../types';
 import { add, scale, rotate, randomRange } from '../math';
+import { CONFIG } from '../config';
 
 // A single piece of debris - a line segment that drifts and fades
 
@@ -13,14 +14,14 @@ export interface DebrisLine {
   maxLifetime: number;
 }
 
-const DEBRIS_LIFETIME = 2; // seconds
-const DEBRIS_SPEED = 80;
-
 export class Debris {
   lines: DebrisLine[] = [];
   isActive = true;
 
   constructor(position: Vector2, shipRotation: number, shipShape: Vector2[]) {
+    const lifetime = CONFIG.visual.debrisLifetime;
+    const baseSpeed = CONFIG.visual.debrisSpeed;
+
     // Break the ship shape into individual line segments
     for (let i = 0; i < shipShape.length; i++) {
       const nextIndex = (i + 1) % shipShape.length;
@@ -31,7 +32,7 @@ export class Debris {
 
       // Each line gets its own random velocity
       const angle = randomRange(0, Math.PI * 2);
-      const speed = randomRange(DEBRIS_SPEED * 0.5, DEBRIS_SPEED);
+      const speed = randomRange(baseSpeed * 0.5, baseSpeed);
 
       this.lines.push({
         start: add(position, start),
@@ -39,8 +40,8 @@ export class Debris {
         velocity: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
         angularVelocity: randomRange(-3, 3),
         rotation: 0,
-        lifetime: DEBRIS_LIFETIME,
-        maxLifetime: DEBRIS_LIFETIME,
+        lifetime: lifetime,
+        maxLifetime: lifetime,
       });
     }
   }

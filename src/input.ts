@@ -16,6 +16,7 @@ export class InputHandler {
   private spaceWasReleased = true; // Require release before new start press
   private glowTogglePressed = false;
   private hyperspacePressed = false;
+  private menuPressed = false;
 
   constructor() {
     window.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -73,6 +74,11 @@ export class InputHandler {
           this.hyperspacePressed = true;
         }
         break;
+      case 'Escape':
+        if (isDown) {
+          this.menuPressed = true;
+        }
+        break;
     }
   }
 
@@ -114,5 +120,31 @@ export class InputHandler {
       return true;
     }
     return false;
+  }
+
+  // Check if player pressed menu (ESC)
+  consumeMenuPress(): boolean {
+    if (this.menuPressed) {
+      this.menuPressed = false;
+      return true;
+    }
+    return false;
+  }
+
+  // Clear all key states (call during state transitions)
+  clearAll(): void {
+    this.keys = {
+      left: false,
+      right: false,
+      thrust: false,
+      fire: false,
+      hyperspace: false,
+    };
+    this.firePressed = false;
+    this.startPressed = false;
+    this.spaceWasReleased = true;
+    this.glowTogglePressed = false;
+    this.hyperspacePressed = false;
+    this.menuPressed = false;
   }
 }

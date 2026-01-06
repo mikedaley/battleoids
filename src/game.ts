@@ -10,15 +10,20 @@ import {
   Debris,
   HyperspaceParticles,
   UFO,
+  GravityWell,
 } from './entities';
 import { checkCollision, wrapEntity } from './collision';
 import { angleToVector, randomRange } from './math';
-
-const FIRE_COOLDOWN = 0.25; // minimum seconds between shots
-const STARTING_ASTEROIDS = 4;
-const UFO_SPAWN_MIN = 15; // minimum seconds between UFO spawns
-const UFO_SPAWN_MAX = 30; // maximum seconds between UFO spawns
-const SMALL_UFO_CHANCE = 0.3; // 30% chance for small UFO (increases with level)
+import { drawMainMenu, drawHUD, drawGameOver, type HUDState } from './ui';
+import { CONFIG } from './config';
+import {
+  createAsteroids,
+  createUFO,
+  createGravityWell,
+  createDebris,
+  getNextUFOSpawnTime,
+  getNextGravityWellSpawnTime,
+} from './spawner';
 
 export class Game {
   private renderer: Renderer;
@@ -32,6 +37,9 @@ export class Game {
   private hyperspaceParticles: HyperspaceParticles | null = null;
   private ufo: UFO | null = null;
   private ufoSpawnTimer = 0;
+  private gravityWell: GravityWell | null = null;
+  private gravityWellSpawnTimer = 0;
+  private wasGravityWellActive = false;
 
   private data: GameData = {
     score: 0,
@@ -112,6 +120,12 @@ export class Game {
         this.resetGame();
         this.startGame();
       }
+      return;
+    }
+
+    // Check for ESC to return to menu
+    if (this.input.consumeMenuPress()) {
+      this.resetGame();
       return;
     }
 
@@ -200,6 +214,9 @@ export class Game {
     // Update UFO spawn timer and UFO
     this.updateUFO(dt);
 
+    // Update gravity well
+    this.updateGravityWell(dt);
+
     // Update debris
     for (const d of this.debris) {
       d.update(dt);
@@ -224,7 +241,7 @@ export class Game {
     const pos = this.ship.getNosePosition();
     const dir = angleToVector(this.ship.transform.rotation);
     this.bullets.push(new Bullet(pos.x, pos.y, dir));
-    this.fireCooldown = FIRE_COOLDOWN;
+    this.fireCooldown = CONFIG.bullet.fireCooldown;
     this.audio.playShoot();
   }
 
@@ -295,17 +312,13 @@ export class Game {
     if (this.ufo.isOffScreen(this.renderer.width)) {
       this.audio.stopUFOSound();
       this.ufo = null;
-      this.ufoSpawnTimer = randomRange(UFO_SPAWN_MIN, UFO_SPAWN_MAX);
+      this.ufoSpawnTimer = getNextUFOSpawnTime();
     }
   }
 
   private spawnUFO(): void {
-    // Higher levels have higher chance of small (harder) UFO
-    const smallChance = Math.min(SMALL_UFO_CHANCE + this.data.level * 0.05, 0.7);
-    const size = Math.random() < smallChance ? 'small' : 'large';
-
-    this.ufo = new UFO(this.renderer.width, this.renderer.height, size);
-    this.audio.startUFOSound(size === 'small');
+    this.ufo = createUFO(this.renderer.width, this.renderer.height, this.data.level);
+    this.audio.startUFOSound(this.ufo.size === 'small');
   }
 
   private checkUFOCollisions(): void {
@@ -318,21 +331,88 @@ export class Game {
 
         // Create debris from UFO
         this.debris.push(
-          new Debris(this.ufo.transform.position, this.ufo.transform.rotation, this.ufo.shape)
+          createDebris(this.ufo.transform.position, this.ufo.transform.rotation, this.ufo.shape)
         );
 
         this.audio.playUFOExplosion();
         this.ufo = null;
-        this.ufoSpawnTimer = randomRange(UFO_SPAWN_MIN, UFO_SPAWN_MAX);
+        this.ufoSpawnTimer = getNextUFOSpawnTime();
         return;
       }
     }
   }
 
+  private updateGravityWell(dt: number): void {
+    // Spawn timer when no gravity well exists
+    if (!this.gravityWell) {
+      this.gravityWellSpawnTimer -= dt;
+      if (this.gravityWellSpawnTimer <= 0) {
+        this.spawnGravityWell();
+      }
+
+      // Handle despawn sound transition
+      if (this.wasGravityWellActive) {
+        this.audio.playGravityWellDespawn();
+        this.wasGravityWellActive = false;
+      }
+      return;
+    }
+
+    // Update existing gravity well
+    this.gravityWell.update(dt);
+
+    // Track that we have an active gravity well (for despawn sound)
+    this.wasGravityWellActive = true;
+
+    // Apply gravitational pull to ship if active and not in hyperspace
+    if (this.ship.isActive && !this.ship.isInHyperspace()) {
+      const pullForce = this.gravityWell.getPullForce(this.ship.transform.position);
+
+      // Apply the pull force to ship velocity
+      this.ship.velocity.x += pullForce.x * dt;
+      this.ship.velocity.y += pullForce.y * dt;
+
+      // Update audio intensity based on distance
+      const distance = this.gravityWell.getDistance(this.ship.transform.position);
+      const intensity = Math.max(0, 1 - distance / this.gravityWell.pullRadius);
+      this.audio.updateGravityWellIntensity(intensity);
+
+      // Check if ship is trapped (too close to escape)
+      if (
+        this.gravityWell.isTrapped(this.ship.transform.position) &&
+        !this.ship.isInvulnerable()
+      ) {
+        this.audio.playGravityTrap();
+        this.shipDestroyed();
+        // Clear the gravity well after trapping the ship
+        this.gravityWell = null;
+        this.gravityWellSpawnTimer = getNextGravityWellSpawnTime();
+        return;
+      }
+    }
+
+    // Remove gravity well when it expires
+    if (!this.gravityWell.isActive) {
+      this.audio.stopGravityWellSound();
+      this.gravityWell = null;
+      this.gravityWellSpawnTimer = getNextGravityWellSpawnTime();
+    }
+  }
+
+  private spawnGravityWell(): void {
+    this.gravityWell = createGravityWell(
+      this.renderer.width,
+      this.renderer.height,
+      this.ship.transform.position
+    );
+    this.audio.playGravityWellSpawn();
+    this.audio.startGravityWellSound();
+  }
+
   private shipDestroyed(): void {
     // Create debris from the ship breaking apart
     this.debris.push(
-      new Debris(this.ship.transform.position, this.ship.transform.rotation, this.ship.shape)
+      createDebris(this.ship.transform.position, this.ship.transform.rotation, this.ship.shape)
     );
 
     this.ship.isActive = false;
@@ -342,14 +422,19 @@ export class Game {
 
     if (this.data.lives <= 0) {
       this.data.state = 'gameOver';
-      this.gameOverTimer = 10; // 10 seconds before returning to menu
+      this.gameOverTimer = CONFIG.timing.gameOverReturnDelay;
       // Stop UFO sound on game over
       if (this.ufo) {
         this.audio.stopUFOSound();
         this.ufo = null;
       }
+      // Stop gravity well sound on game over
+      if (this.gravityWell) {
+        this.audio.stopGravityWellSound();
+        this.gravityWell = null;
+      }
     } else {
-      this.respawnTimer = 2; // 2 seconds before respawn
+      this.respawnTimer = CONFIG.timing.respawnDelay;
     }
   }
 
@@ -359,38 +444,34 @@ export class Game {
     this.audio.playLevelUp();
 
     // Spawn more asteroids each level
-    const numAsteroids = STARTING_ASTEROIDS + this.data.level - 1;
+    const numAsteroids = CONFIG.asteroid.startingCount + this.data.level - 1;
     this.spawnAsteroids(numAsteroids);
   }
 
   private spawnAsteroids(count: number): void {
-    for (let i = 0; i < count; i++) {
-      // Spawn asteroids away from the ship
-      let x: number, y: number;
-      do {
-        x = randomRange(0, this.renderer.width);
-        y = randomRange(0, this.renderer.height);
-      } while (
-        Math.abs(x - this.ship.transform.position.x) < 100 &&
-        Math.abs(y - this.ship.transform.position.y) < 100
-      );
-
-      this.asteroids.push(new Asteroid(x, y, 'large'));
-    }
+    const newAsteroids = createAsteroids(
+      count,
+      this.renderer.width,
+      this.renderer.height,
+      this.ship.transform.position
+    );
+    this.asteroids.push(...newAsteroids);
   }
 
   private startGame(): void {
+    this.input.clearAll();
     this.data.state = 'playing';
-    this.spawnAsteroids(STARTING_ASTEROIDS);
-    // Set initial UFO spawn timer
-    this.ufoSpawnTimer = randomRange(UFO_SPAWN_MIN, UFO_SPAWN_MAX);
+    this.spawnAsteroids(CONFIG.asteroid.startingCount);
+    this.ufoSpawnTimer = getNextUFOSpawnTime();
+    this.gravityWellSpawnTimer = getNextGravityWellSpawnTime();
   }
 
   private resetGame(): void {
+    this.input.clearAll();
     this.data = {
-      score: 0,
-      lives: 3,
-      level: 1,
+      score: CONFIG.initialState.score,
+      lives: CONFIG.initialState.lives,
+      level: CONFIG.initialState.level,
       state: 'start',
     };
     this.asteroids = [];
@@ -404,158 +485,20 @@ export class Game {
       this.ufo = null;
     }
     this.ufoSpawnTimer = 0;
-  }
-
-  private drawScoreGuide(): void {
-    const cx = this.renderer.width / 2;
-    const startY = 300;
-    const rowHeight = 40;
-
-    // Simple asteroid shape for display (rocky polygon)
-    const asteroidShape = [
-      { x: 0, y: -1 },
-      { x: 0.7, y: -0.7 },
-      { x: 1, y: 0 },
-      { x: 0.8, y: 0.6 },
-      { x: 0.3, y: 1 },
-      { x: -0.4, y: 0.9 },
-      { x: -1, y: 0.3 },
-      { x: -0.9, y: -0.5 },
-      { x: -0.5, y: -0.9 },
-    ];
-
-    // UFO shape for display (flying saucer)
-    const ufoShape = [
-      { x: -0.3, y: -0.8 },
-      { x: 0.3, y: -0.8 },
-      { x: 0.5, y: -0.3 },
-      { x: 1, y: 0 },
-      { x: 0.6, y: 0.4 },
-      { x: -0.6, y: 0.4 },
-      { x: -1, y: 0 },
-      { x: -0.5, y: -0.3 },
-    ];
-
-    // Section header
-    this.renderer.drawText('SCORE', cx, startY - 20, 2, '#888');
-
-    // Layout: shape on left, score on right for each row
-    const shapeX = cx - 50;
-    const scoreX = cx + 50;
-    let y = startY + 20;
-
-    // Text y is the top of the text, so offset up by half text height to center vertically
-    const textOffsetY = -8;
-
-    // Large asteroid - 20 pts
-    this.renderer.drawShape(
-      asteroidShape,
-      { position: { x: shapeX, y }, rotation: 0, scale: 18 },
-      '#f0f'
-    );
-    this.renderer.drawText('20', scoreX, y + textOffsetY, 1.8, '#fff');
-
-    y += rowHeight;
-
-    // Medium asteroid - 50 pts
-    this.renderer.drawShape(
-      asteroidShape,
-      { position: { x: shapeX, y }, rotation: 0.5, scale: 12 },
-      '#f0f'
-    );
-    this.renderer.drawText('50', scoreX, y + textOffsetY, 1.8, '#fff');
-
-    y += rowHeight;
-
-    // Small asteroid - 100 pts
-    this.renderer.drawShape(
-      asteroidShape,
-      { position: { x: shapeX, y }, rotation: 1, scale: 7 },
-      '#f0f'
-    );
-    this.renderer.drawText('100', scoreX, y + textOffsetY, 1.8, '#fff');
-
-    y += rowHeight;
-
-    // Large UFO - 200 pts
-    this.renderer.drawShape(
-      ufoShape,
-      { position: { x: shapeX, y }, rotation: 0, scale: 14 },
-      '#0f0'
-    );
-    this.renderer.drawText('200', scoreX, y + textOffsetY, 1.8, '#fff');
-
-    y += rowHeight;
-
-    // Small UFO - 1000 pts
-    this.renderer.drawShape(
-      ufoShape,
-      { position: { x: shapeX, y }, rotation: 0, scale: 9 },
-      '#0f0'
-    );
-    this.renderer.drawText('1000', scoreX, y + textOffsetY, 1.8, '#fff');
-  }
-
-  private drawHUD(): void {
-    // Draw score on the left
-    this.renderer.drawText(`SCORE: ${this.data.score}`, 100, 25, 2, '#0ff');
-    // Draw lives in the center
-    this.renderer.drawText(`LIVES: ${this.data.lives}`, this.renderer.width / 2, 25, 2, '#0ff');
-    // Draw level on the right
-    this.renderer.drawText(`LEVEL: ${this.data.level}`, this.renderer.width - 100, 25, 2, '#0ff');
-    // Draw glow status in bottom right
-    const glowStatus = this.renderer.glowEnabled ? 'ON' : 'OFF';
-    this.renderer.drawText(
-      `G: GLOW ${glowStatus}`,
-      this.renderer.width - 80,
-      this.renderer.height - 20,
-      1.5,
-      this.renderer.glowEnabled ? '#0f0' : '#666'
-    );
-    // Draw hyperspace status
-    if (this.ship.canHyperspace()) {
-      this.renderer.drawText('H: HYPERSPACE READY', 80, this.renderer.height - 20, 1.5, '#0f0');
-    } else if (this.ship.isInHyperspace()) {
-      this.renderer.drawText('H: WARPING', 80, this.renderer.height - 20, 1.5, '#ff0');
-    } else {
-      const cooldown = Math.ceil(this.ship.hyperspaceCooldown);
-      this.renderer.drawText(`H: COOLDOWN ${cooldown}`, 80, this.renderer.height - 20, 1.5, '#f00');
+    // Clear gravity well state
+    if (this.gravityWell) {
+      this.audio.stopGravityWellSound();
+      this.gravityWell = null;
     }
+    this.gravityWellSpawnTimer = 0;
+    this.wasGravityWellActive = false;
   }
 
   private render(): void {
     this.renderer.clear();
 
     if (this.data.state === 'start') {
-      const cx = this.renderer.width / 2;
-
-      // Title
-      this.renderer.drawText('BATTLEOIDS', cx, 80, 6);
-
-      // Controls section - spread across the width
-      this.renderer.drawText('CONTROLS', cx, 170, 2, '#888');
-
-      const colLeft = 140;
-      const colCenter = cx;
-      const colRight = this.renderer.width - 140;
-      const keyY = 210;
-      const labelY = 235;
-
-      this.renderer.drawText('ARROWS / WASD', colLeft, keyY, 1.8, '#f0f');
-      this.renderer.drawText('MOVE', colLeft, labelY, 1.5, '#888');
-
-      this.renderer.drawText('H', colCenter, keyY, 1.8, '#f0f');
-      this.renderer.drawText('HYPERSPACE', colCenter, labelY, 1.5, '#888');
-
-      this.renderer.drawText('SPACE', colRight, keyY, 1.8, '#f0f');
-      this.renderer.drawText('FIRE', colRight, labelY, 1.5, '#888');
-
-      // Score guide
-      this.drawScoreGuide();
-
-      // Start prompt
-      this.renderer.drawText('PRESS SPACE TO START', cx, this.renderer.height - 60, 3, '#0ff');
-
+      drawMainMenu(this.renderer, this.renderer.width, this.renderer.height);
       this.renderer.flush();
       return;
     }
@@ -595,6 +538,38 @@ export class Game {
       this.renderer.drawShape(this.ufo.shape, this.ufo.transform, '#0f0');
     }
 
+    // Draw gravity well
+    if (this.gravityWell) {
+      const fade = this.gravityWell.getFade();
+      const pos = this.gravityWell.position;
+
+      // Draw spiral arms in magenta/purple
+      const arms = this.gravityWell.getSpiralPoints();
+      for (const arm of arms) {
+        this.renderer.drawPolyline(arm, '#f0f', 2, fade);
+      }
+
+      // Draw concentric rings
+      const rings = this.gravityWell.getRingRadii();
+      for (let i = 0; i < rings.length; i++) {
+        const ringAlpha = fade * (0.4 + 0.2 * (i / rings.length));
+        this.renderer.drawCircle(pos, rings[i], '#a0f', 1, ringAlpha, 16);
+      }
+
+      // Draw center point
+      this.renderer.drawPoint(pos, 4, '#fff', fade);
+
+      // Draw trap radius warning when ship is close
+      if (this.ship.isActive && !this.ship.isInHyperspace()) {
+        const distance = this.gravityWell.getDistance(this.ship.transform.position);
+        if (distance < this.gravityWell.pullRadius * 0.5) {
+          // Pulsing warning circle when getting too close
+          const warningAlpha = fade * (0.3 + 0.3 * Math.sin(Date.now() / 100));
+          this.renderer.drawCircle(pos, this.gravityWell.trapRadius, '#f00', 2, warningAlpha, 12);
+        }
+      }
+    }
+
     // Draw ship in cyan (with blinking when invulnerable)
     if (this.ship.isActive) {
       const shouldDraw = !this.ship.isInvulnerable() || Math.floor(Date.now() / 100) % 2 === 0;
@@ -619,39 +594,27 @@ export class Game {
 
     // Draw game over text
     if (this.data.state === 'gameOver') {
-      this.renderer.drawText(
-        'GAME OVER',
-        this.renderer.width / 2,
-        this.renderer.height / 2 - 40,
-        5
-      );
-      this.renderer.drawText(
-        `FINAL SCORE: ${this.data.score}`,
-        this.renderer.width / 2,
-        this.renderer.height / 2 + 20,
-        3
-      );
-      this.renderer.drawText(
-        'PRESS SPACE TO PLAY AGAIN',
-        this.renderer.width / 2,
-        this.renderer.height / 2 + 70,
-        2,
-        '#f0f'
-      );
-      // Show countdown
-      const countdown = Math.ceil(this.gameOverTimer);
-      this.renderer.drawText(
-        `RETURNING TO MENU IN ${countdown}`,
-        this.renderer.width / 2,
-        this.renderer.height / 2 + 110,
-        2,
-        '#666'
+      drawGameOver(
+        this.renderer,
+        this.data.score,
+        this.gameOverTimer,
+        this.renderer.width,
+        this.renderer.height
       );
     }
 
     // Always draw HUD when playing or game over
     if (this.data.state === 'playing' || this.data.state === 'gameOver') {
-      this.drawHUD();
+      const hudState: HUDState = {
+        score: this.data.score,
+        lives: this.data.lives,
+        level: this.data.level,
+        glowEnabled: this.renderer.glowEnabled,
+        hyperspaceReady: this.ship.canHyperspace(),
+        hyperspaceActive: this.ship.isInHyperspace(),
+        hyperspaceCooldown: this.ship.hyperspaceCooldown,
+      };
+      drawHUD(this.renderer, hudState, this.renderer.width, this.renderer.height);
     }
 
     // Flush all batched draw calls

@@ -1,0 +1,187 @@
+import type { Renderer } from './renderer';
+
+// Display shapes for the score guide
+const ASTEROID_DISPLAY_SHAPE = [
+  { x: 0, y: -1 },
+  { x: 0.7, y: -0.7 },
+  { x: 1, y: 0 },
+  { x: 0.8, y: 0.6 },
+  { x: 0.3, y: 1 },
+  { x: -0.4, y: 0.9 },
+  { x: -1, y: 0.3 },
+  { x: -0.9, y: -0.5 },
+  { x: -0.5, y: -0.9 },
+];
+
+const UFO_DISPLAY_SHAPE = [
+  { x: -0.3, y: -0.8 },
+  { x: 0.3, y: -0.8 },
+  { x: 0.5, y: -0.3 },
+  { x: 1, y: 0 },
+  { x: 0.6, y: 0.4 },
+  { x: -0.6, y: 0.4 },
+  { x: -1, y: 0 },
+  { x: -0.5, y: -0.3 },
+];
+
+function drawScoreGuide(renderer: Renderer, width: number): void {
+  const cx = width / 2;
+  const startY = 300;
+  const rowHeight = 40;
+
+  // Section header
+  renderer.drawText('SCORE', cx, startY - 20, 2, '#888');
+
+  // Layout: shape on left, score on right for each row
+  const shapeX = cx - 50;
+  const scoreX = cx + 50;
+  let y = startY + 20;
+
+  // Text y is the top of the text, so offset up by half text height to center vertically
+  const textOffsetY = -8;
+
+  // Large asteroid - 20 pts
+  renderer.drawShape(
+    ASTEROID_DISPLAY_SHAPE,
+    { position: { x: shapeX, y }, rotation: 0, scale: 18 },
+    '#f0f'
+  );
+  renderer.drawText('20', scoreX, y + textOffsetY, 1.8, '#fff');
+
+  y += rowHeight;
+
+  // Medium asteroid - 50 pts
+  renderer.drawShape(
+    ASTEROID_DISPLAY_SHAPE,
+    { position: { x: shapeX, y }, rotation: 0.5, scale: 12 },
+    '#f0f'
+  );
+  renderer.drawText('50', scoreX, y + textOffsetY, 1.8, '#fff');
+
+  y += rowHeight;
+
+  // Small asteroid - 100 pts
+  renderer.drawShape(
+    ASTEROID_DISPLAY_SHAPE,
+    { position: { x: shapeX, y }, rotation: 1, scale: 7 },
+    '#f0f'
+  );
+  renderer.drawText('100', scoreX, y + textOffsetY, 1.8, '#fff');
+
+  y += rowHeight;
+
+  // Large UFO - 200 pts
+  renderer.drawShape(
+    UFO_DISPLAY_SHAPE,
+    { position: { x: shapeX, y }, rotation: 0, scale: 14 },
+    '#0f0'
+  );
+  renderer.drawText('200', scoreX, y + textOffsetY, 1.8, '#fff');
+
+  y += rowHeight;
+
+  // Small UFO - 1000 pts
+  renderer.drawShape(
+    UFO_DISPLAY_SHAPE,
+    { position: { x: shapeX, y }, rotation: 0, scale: 9 },
+    '#0f0'
+  );
+  renderer.drawText('1000', scoreX, y + textOffsetY, 1.8, '#fff');
+
+  y += rowHeight;
+
+  // Gravity well - danger indicator
+  renderer.drawCircle({ x: shapeX, y }, 8, '#a0f', 2, 1, 12);
+  renderer.drawCircle({ x: shapeX, y }, 14, '#f0f', 1, 0.6, 12);
+  renderer.drawPoint({ x: shapeX, y }, 3, '#fff');
+  renderer.drawText('DANGER', scoreX, y + textOffsetY, 1.8, '#f00');
+}
+
+export function drawMainMenu(renderer: Renderer, width: number, height: number): void {
+  const cx = width / 2;
+
+  // Title
+  renderer.drawText('BATTLEOIDS', cx, 80, 6);
+
+  // Controls section - spread across the width
+  renderer.drawText('CONTROLS', cx, 170, 2, '#888');
+
+  const colLeft = 140;
+  const colCenter = cx;
+  const colRight = width - 140;
+  const keyY = 210;
+  const labelY = 235;
+
+  renderer.drawText('ARROWS / WASD', colLeft, keyY, 1.8, '#f0f');
+  renderer.drawText('MOVE', colLeft, labelY, 1.5, '#888');
+
+  renderer.drawText('H', colCenter - 60, keyY, 1.8, '#f0f');
+  renderer.drawText('HYPERSPACE', colCenter - 60, labelY, 1.5, '#888');
+
+  renderer.drawText('SPACE', colCenter + 60, keyY, 1.8, '#f0f');
+  renderer.drawText('FIRE', colCenter + 60, labelY, 1.5, '#888');
+
+  renderer.drawText('ESC', colRight, keyY, 1.8, '#f0f');
+  renderer.drawText('MENU', colRight, labelY, 1.5, '#888');
+
+  // Score guide
+  drawScoreGuide(renderer, width);
+
+  // Start prompt
+  renderer.drawText('PRESS SPACE TO START', cx, height - 60, 3, '#0ff');
+}
+
+export interface HUDState {
+  score: number;
+  lives: number;
+  level: number;
+  glowEnabled: boolean;
+  hyperspaceReady: boolean;
+  hyperspaceActive: boolean;
+  hyperspaceCooldown: number;
+}
+
+export function drawHUD(renderer: Renderer, state: HUDState, width: number, height: number): void {
+  // Draw score on the left
+  renderer.drawText(`SCORE: ${state.score}`, 100, 25, 2, '#0ff');
+  // Draw lives in the center
+  renderer.drawText(`LIVES: ${state.lives}`, width / 2, 25, 2, '#0ff');
+  // Draw level on the right
+  renderer.drawText(`LEVEL: ${state.level}`, width - 100, 25, 2, '#0ff');
+
+  // Draw glow status in bottom right
+  const glowStatus = state.glowEnabled ? 'ON' : 'OFF';
+  renderer.drawText(
+    `G: GLOW ${glowStatus}`,
+    width - 80,
+    height - 20,
+    1.5,
+    state.glowEnabled ? '#0f0' : '#666'
+  );
+
+  // Draw hyperspace status
+  if (state.hyperspaceReady) {
+    renderer.drawText('H: HYPERSPACE READY', 80, height - 20, 1.5, '#0f0');
+  } else if (state.hyperspaceActive) {
+    renderer.drawText('H: WARPING', 80, height - 20, 1.5, '#ff0');
+  } else {
+    const cooldown = Math.ceil(state.hyperspaceCooldown);
+    renderer.drawText(`H: COOLDOWN ${cooldown}`, 80, height - 20, 1.5, '#f00');
+  }
+}
+
+export function drawGameOver(
+  renderer: Renderer,
+  score: number,
+  countdown: number,
+  width: number,
+  height: number
+): void {
+  renderer.drawText('GAME OVER', width / 2, height / 2 - 40, 5);
+  renderer.drawText(`FINAL SCORE: ${score}`, width / 2, height / 2 + 20, 3);
+  renderer.drawText('PRESS SPACE TO PLAY AGAIN', width / 2, height / 2 + 70, 2, '#f0f');
+
+  // Show countdown
+  const countdownInt = Math.ceil(countdown);
+  renderer.drawText(`RETURNING TO MENU IN ${countdownInt}`, width / 2, height / 2 + 110, 2, '#666');
+}

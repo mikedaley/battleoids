@@ -1,24 +1,21 @@
-import type { Entity, Shape, Vector2, AsteroidSize } from '../types';
-import { add, scale, randomRange, randomInt } from '../math';
+import type { Shape, Vector2, AsteroidSize } from '../types';
+import { scale, randomRange, randomInt } from '../math';
+import { CONFIG } from '../config';
+import { ScoreableEntity } from './baseEntity';
 
 // Asteroids come in three sizes and have irregular shapes
 
-const SIZE_CONFIG = {
-  large: { radius: 40, minVerts: 10, maxVerts: 14, speed: 50, points: 20 },
-  medium: { radius: 20, minVerts: 8, maxVerts: 10, speed: 80, points: 50 },
-  small: { radius: 10, minVerts: 6, maxVerts: 8, speed: 120, points: 100 },
-};
-
 function generateAsteroidShape(size: AsteroidSize): Shape {
-  const config = SIZE_CONFIG[size];
+  const config = CONFIG.asteroid[size];
   const numVerts = randomInt(config.minVerts, config.maxVerts);
   const shape: Shape = [];
 
   // Generate vertices around a circle with random variation
   for (let i = 0; i < numVerts; i++) {
     const angle = (i / numVerts) * Math.PI * 2;
-    // Vary the radius between 70% and 100% for that rocky look
-    const r = config.radius * randomRange(0.63, 1.0);
+    const r =
+      config.radius *
+      randomRange(CONFIG.asteroid.radiusVariation.min, CONFIG.asteroid.radiusVariation.max);
     shape.push({
       x: Math.cos(angle) * r,
       y: Math.sin(angle) * r,
@@ -28,31 +25,22 @@ function generateAsteroidShape(size: AsteroidSize): Shape {
   return shape;
 }
 
-export class Asteroid implements Entity {
-  transform = {
-    position: { x: 0, y: 0 },
-    rotation: 0,
-    scale: 1,
-  };
-  velocity: Vector2 = { x: 0, y: 0 };
-  angularVelocity: number;
-  shape: Shape;
-  radius: number;
-  isActive = true;
+export class Asteroid extends ScoreableEntity {
   size: AsteroidSize;
-  points: number;
 
   constructor(x: number, y: number, size: AsteroidSize, direction?: Vector2) {
-    this.size = size;
-    const config = SIZE_CONFIG[size];
+    const config = CONFIG.asteroid[size];
+    super(x, y, config.points);
 
-    this.transform.position = { x, y };
+    this.size = size;
     this.shape = generateAsteroidShape(size);
     this.radius = config.radius;
-    this.points = config.points;
 
     // Random spin
-    this.angularVelocity = randomRange(-2, 2);
+    this.angularVelocity = randomRange(
+      CONFIG.asteroid.spinRange.min,
+      CONFIG.asteroid.spinRange.max
+    );
 
     // Random or specified direction
     if (direction) {
@@ -64,11 +52,6 @@ export class Asteroid implements Entity {
         y: Math.sin(angle) * config.speed,
       };
     }
-  }
-
-  update(dt: number): void {
-    this.transform.position = add(this.transform.position, scale(this.velocity, dt));
-    this.transform.rotation += this.angularVelocity * dt;
   }
 
   // When destroyed, large asteroids split into medium, medium into small
