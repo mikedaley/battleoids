@@ -136,11 +136,11 @@ export interface HUDState {
 
 export function drawHUD(renderer: Renderer, state: HUDState, width: number, height: number): void {
   // Draw score on the left
-  renderer.drawText(`SCORE: ${state.score}`, 100, 25, 2, '#0ff');
+  renderer.drawText(`SCORE: ${state.score}`, 100, 25, 2, '#fff');
   // Draw lives in the center
-  renderer.drawText(`LIVES: ${state.lives}`, width / 2, 25, 2, '#0ff');
+  renderer.drawText(`LIVES: ${state.lives}`, width / 2, 25, 2, '#fff');
   // Draw level on the right
-  renderer.drawText(`LEVEL: ${state.level}`, width - 100, 25, 2, '#0ff');
+  renderer.drawText(`LEVEL: ${state.level}`, width - 100, 25, 2, '#fff');
 
   // Draw glow status in bottom right
   const glowStatus = state.glowEnabled ? 'ON' : 'OFF';
