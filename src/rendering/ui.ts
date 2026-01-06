@@ -84,8 +84,8 @@ function drawScoreGuide(renderer: Renderer, width: number): void {
   );
   renderer.drawText('100', leftScoreX, y + textOffsetY, 1.8, '#fff');
 
-  renderer.drawCircle({ x: rightShapeX, y }, 8, '#a0f', 2, 1, 12);
-  renderer.drawCircle({ x: rightShapeX, y }, 14, '#f0f', 1, 0.6, 12);
+  renderer.drawCircle({ x: rightShapeX, y }, 8, '#fa0', 2, 1, 12);
+  renderer.drawCircle({ x: rightShapeX, y }, 14, '#ff0', 1, 0.6, 12);
   renderer.drawPoint({ x: rightShapeX, y }, 3, '#fff');
   renderer.drawText('DANGER', rightScoreX, y + textOffsetY, 1.8, '#f00');
 }

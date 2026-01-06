@@ -545,20 +545,20 @@ export class Game {
       const fade = this.gravityWell.getFade();
       const pos = this.gravityWell.position;
 
-      // Draw spiral arms in magenta/purple - use consistent alpha for batching
+      // Draw spiral arms
       const arms = this.gravityWell.getSpiralPoints();
       for (const arm of arms) {
-        this.renderer.drawPolyline(arm, '#f0f', 2, fade);
+        this.renderer.drawPolyline(arm, CONFIG.colors.gravityWell.spiral, 2, fade);
       }
 
-      // Draw concentric rings - use consistent alpha for batching (allows fast path)
+      // Draw concentric rings
       const rings = this.gravityWell.getRingRadii();
       for (const radius of rings) {
-        this.renderer.drawCircle(pos, radius, '#a0f', 1, fade, 12);
+        this.renderer.drawCircle(pos, radius, CONFIG.colors.gravityWell.rings, 1, fade, 12);
       }
 
       // Draw center point
-      this.renderer.drawPoint(pos, 4, '#fff', fade);
+      this.renderer.drawPoint(pos, 4, CONFIG.colors.gravityWell.center, fade);
     }
 
     // Draw ship in cyan (with blinking when invulnerable)

@@ -40,8 +40,8 @@ export const CONFIG = {
     medium: { radius: 20, minVerts: 8, maxVerts: 10, speed: 80, points: 50 },
     small: { radius: 10, minVerts: 6, maxVerts: 8, speed: 120, points: 100 },
     startingCount: 4,
-    radiusVariation: { min: 0.63, max: 1.0 },
-    spinRange: { min: -2, max: 2 },
+    radiusVariation: { min: 0.7, max: 1.0 },
+    spinRange: { min: -3, max: 3 },
   },
 
   // UFO settings
@@ -58,7 +58,7 @@ export const CONFIG = {
 
   // Gravity well settings
   gravityWell: {
-    pullRadius: 200,
+    pullRadius: 300,
     visualRadius: 30,
     pullStrength: { min: 150, max: 500 },
     spawnDelay: { min: 20, max: 40 },
@@ -82,8 +82,8 @@ export const CONFIG = {
     asteroid: '#f0f',
     ufo: '#0f0',
     gravityWell: {
-      spiral: '#f0f',
-      rings: '#a0f',
+      spiral: '#ff0',
+      rings: '#fa0',
       center: '#fff',
       trapWarning: '#f00',
     },
