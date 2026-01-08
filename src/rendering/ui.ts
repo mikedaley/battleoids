@@ -247,7 +247,7 @@ export function drawHighScores(
   renderer.drawText('LEVEL', 650, startY, 2, '#0ff');
 
   // Separator line
-  renderer.drawLine({ x: 100, y: startY + 10 }, { x: width - 100, y: startY + 10 }, '#0ff');
+  renderer.drawLine({ x: 100, y: startY + 20 }, { x: width - 100, y: startY + 20 }, '#0ff');
 
   // Scores
   for (let i = 0; i < Math.min(scores.length, 10); i++) {

@@ -44,7 +44,7 @@ export class Game {
   private highScoreManager: HighScoreManager;
 
   private starfield: Starfield;
-  private moon: Moon;
+  private _moon: Moon; // Unused - moon rendering currently disabled
   private ship: Ship;
   private asteroids: Asteroid[] = [];
   private bullets: Bullet[] = [];
@@ -94,8 +94,8 @@ export class Game {
       CONFIG.background.starCount
     );
 
-    // Position moon in top-right corner
-    this.moon = new Moon(
+    // Position moon in top-right corner (currently not rendered)
+    this._moon = new Moon(
       this.renderer.width - 100,
       100,
       CONFIG.background.moon.radius,
@@ -113,8 +113,8 @@ export class Game {
     this.lastTime = performance.now();
 
     // Initialize menu timing
-    this.menuDisplayDuration = CONFIG.timing.menuDisplayDuration();
-    this.scoresDisplayDuration = CONFIG.timing.scoresDisplayDuration();
+    this.menuDisplayDuration = CONFIG.timing.menuDisplayDuration;
+    this.scoresDisplayDuration = CONFIG.timing.scoresDisplayDuration;
 
     // Load initial high scores
     this.highScoreManager.loadScores();
@@ -167,7 +167,7 @@ export class Game {
       if (this.menuTimer >= this.scoresDisplayDuration) {
         this.data.state = 'start';
         this.menuTimer = 0;
-        this.menuDisplayDuration = CONFIG.timing.menuDisplayDuration();
+        this.menuDisplayDuration = CONFIG.timing.menuDisplayDuration;
         return;
       }
 
@@ -468,7 +468,12 @@ export class Game {
 
         // Create debris from UFO (green to match UFO color)
         this.debris.push(
-          createDebris(this.ufo.transform.position, this.ufo.transform.rotation, this.ufo.shape, '#0f0')
+          createDebris(
+            this.ufo.transform.position,
+            this.ufo.transform.rotation,
+            this.ufo.shape,
+            '#0f0'
+          )
         );
 
         this.audio.playUFOExplosion();
@@ -611,7 +616,7 @@ export class Game {
   private transitionToViewingScores(): void {
     this.data.state = 'viewingScores';
     this.menuTimer = 0;
-    this.scoresDisplayDuration = CONFIG.timing.scoresDisplayDuration();
+    this.scoresDisplayDuration = CONFIG.timing.scoresDisplayDuration;
 
     // Refresh scores if cache expired
     this.highScoreManager.refreshIfNeeded();
@@ -675,7 +680,7 @@ export class Game {
 
     // Reset high score state
     this.menuTimer = 0;
-    this.menuDisplayDuration = CONFIG.timing.menuDisplayDuration();
+    this.menuDisplayDuration = CONFIG.timing.menuDisplayDuration;
     this.highScoreManager.clearSubmittedScoreId();
   }
 
@@ -726,32 +731,32 @@ export class Game {
       );
     }
 
-    // Draw background: moon
-    // Draw moon outline
-    this.renderer.drawCircle(
-      this.moon.position,
-      this.moon.radius,
-      CONFIG.background.moon.color,
-      2,
-      0.6,
-      32
-    );
+    // // Draw background: moon
+    // // Draw moon outline
+    // this.renderer.drawCircle(
+    //   this.moon.position,
+    //   this.moon.radius,
+    //   CONFIG.background.moon.color,
+    //   2,
+    //   0.6,
+    //   32
+    // );
 
-    // Draw craters
-    for (const crater of this.moon.craters) {
-      const craterPos = {
-        x: this.moon.position.x + crater.position.x,
-        y: this.moon.position.y + crater.position.y,
-      };
-      this.renderer.drawCircle(
-        craterPos,
-        crater.radius,
-        CONFIG.background.moon.craterColor,
-        1,
-        0.4,
-        16
-      );
-    }
+    // // Draw craters
+    // for (const crater of this.moon.craters) {
+    //   const craterPos = {
+    //     x: this.moon.position.x + crater.position.x,
+    //     y: this.moon.position.y + crater.position.y,
+    //   };
+    //   this.renderer.drawCircle(
+    //     craterPos,
+    //     crater.radius,
+    //     CONFIG.background.moon.craterColor,
+    //     1,
+    //     0.4,
+    //     16
+    //   );
+    // }
 
     // Draw asteroids in magenta/pink
     for (const asteroid of this.asteroids) {

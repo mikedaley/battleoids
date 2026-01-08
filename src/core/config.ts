@@ -72,8 +72,8 @@ export const CONFIG = {
     respawnDelay: 2,
     gameOverReturnDelay: 10,
     maxDeltaTime: 0.1, // cap for frame time
-    menuDisplayDuration: () => 15 + Math.random() * 5, // 15-20 seconds
-    scoresDisplayDuration: () => 15 + Math.random() * 5, // 15-20 seconds
+    menuDisplayDuration: 6, // seconds before showing high scores
+    scoresDisplayDuration: 6, // seconds to display high scores
     scoreSubmissionTimeout: 60, // Return to menu after 60s inactivity
   },
 
