@@ -23,13 +23,15 @@ export interface Entity {
   isActive: boolean;
 }
 
-export type GameState = 'start' | 'playing' | 'gameOver';
+export type GameState = 'start' | 'playing' | 'gameOver' | 'submitScore' | 'viewingScores';
 
 export interface GameData {
   score: number;
   lives: number;
   level: number;
   state: GameState;
+  finalScore?: number;
+  finalLevel?: number;
 }
 
 export type AsteroidSize = 'large' | 'medium' | 'small';

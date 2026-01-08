@@ -2,6 +2,8 @@ import type { GameData } from './types';
 import { Renderer } from '../rendering/renderer';
 import { InputHandler } from '../systems/input';
 import { AudioManager } from '../systems/audio';
+import { TextInputHandler } from '../systems/textInput';
+import { HighScoreManager } from '../systems/highScoreManager';
 import {
   Ship,
   Asteroid,
@@ -11,10 +13,19 @@ import {
   HyperspaceParticles,
   UFO,
   GravityWell,
+  Starfield,
+  Moon,
 } from '../entities';
 import { checkCollision, wrapEntity } from '../physics/collision';
 import { angleToVector, randomRange } from '../physics/math';
-import { drawMainMenu, drawHUD, drawGameOver, type HUDState } from '../rendering/ui';
+import {
+  drawMainMenu,
+  drawHUD,
+  drawGameOver,
+  drawScoreSubmission,
+  drawHighScores,
+  type HUDState,
+} from '../rendering/ui';
 import { CONFIG } from './config';
 import {
   createAsteroids,
@@ -29,7 +40,11 @@ export class Game {
   private renderer: Renderer;
   private input: InputHandler;
   private audio: AudioManager;
+  private textInput: TextInputHandler;
+  private highScoreManager: HighScoreManager;
 
+  private starfield: Starfield;
+  private moon: Moon;
   private ship: Ship;
   private asteroids: Asteroid[] = [];
   private bullets: Bullet[] = [];
@@ -41,6 +56,11 @@ export class Game {
   private gravityWell: GravityWell | null = null;
   private gravityWellSpawnTimer = 0;
   private wasGravityWellActive = false;
+
+  // Menu/scores alternation
+  private menuTimer: number = 0;
+  private menuDisplayDuration: number = 0;
+  private scoresDisplayDuration: number = 0;
 
   private data: GameData = {
     score: 0,
@@ -64,6 +84,23 @@ export class Game {
     this.renderer = new Renderer(canvas);
     this.input = new InputHandler();
     this.audio = new AudioManager();
+    this.textInput = new TextInputHandler();
+    this.highScoreManager = new HighScoreManager();
+
+    // Create background elements
+    this.starfield = new Starfield(
+      this.renderer.width,
+      this.renderer.height,
+      CONFIG.background.starCount
+    );
+
+    // Position moon in top-right corner
+    this.moon = new Moon(
+      this.renderer.width - 100,
+      100,
+      CONFIG.background.moon.radius,
+      CONFIG.background.moon.craterCount
+    );
 
     // Create ship at center
     this.ship = new Ship(this.renderer.width / 2, this.renderer.height / 2);
@@ -74,6 +111,14 @@ export class Game {
 
   start(): void {
     this.lastTime = performance.now();
+
+    // Initialize menu timing
+    this.menuDisplayDuration = CONFIG.timing.menuDisplayDuration();
+    this.scoresDisplayDuration = CONFIG.timing.scoresDisplayDuration();
+
+    // Load initial high scores
+    this.highScoreManager.loadScores();
+
     requestAnimationFrame(this.loop.bind(this));
   }
 
@@ -103,8 +148,50 @@ export class Game {
     }
 
     if (this.data.state === 'start') {
+      // Alternate between menu and high scores
+      this.menuTimer += dt;
+      if (this.menuTimer >= this.menuDisplayDuration) {
+        this.transitionToViewingScores();
+        return;
+      }
+
       if (this.input.consumeStartPress()) {
         this.startGame();
+      }
+      return;
+    }
+
+    if (this.data.state === 'viewingScores') {
+      // Show high scores for a duration, then return to menu
+      this.menuTimer += dt;
+      if (this.menuTimer >= this.scoresDisplayDuration) {
+        this.data.state = 'start';
+        this.menuTimer = 0;
+        this.menuDisplayDuration = CONFIG.timing.menuDisplayDuration();
+        return;
+      }
+
+      // Allow immediate start from scores screen
+      if (this.input.consumeStartPress()) {
+        this.startGame();
+      }
+      return;
+    }
+
+    if (this.data.state === 'submitScore') {
+      // Handle score submission
+      this.textInput.update(dt);
+
+      if (this.textInput.consumeSubmit() && this.textInput.isValid()) {
+        const playerName = this.textInput.getText();
+        this.submitPlayerScore(playerName);
+        return;
+      }
+
+      if (this.textInput.consumeCancel()) {
+        this.textInput.deactivate();
+        this.resetGame();
+        return;
       }
       return;
     }
@@ -342,7 +429,12 @@ export class Game {
         this.ship.transform.position.y
       );
       if (shotAngle !== null) {
-        const direction = angleToVector(shotAngle);
+        // UFO uses atan2 which returns standard math angles (0 = right)
+        // Convert directly to direction vector without using angleToVector
+        const direction = {
+          x: Math.cos(shotAngle),
+          y: Math.sin(shotAngle),
+        };
         const bullet = new Bullet(
           this.ufo.transform.position.x,
           this.ufo.transform.position.y,
@@ -468,8 +560,19 @@ export class Game {
     this.audio.playDeath();
 
     if (this.data.lives <= 0) {
-      this.data.state = 'gameOver';
-      this.gameOverTimer = CONFIG.timing.gameOverReturnDelay;
+      // Store final score and level
+      this.data.finalScore = this.data.score;
+      this.data.finalLevel = this.data.level;
+
+      // Check if it's a high score
+      if (this.highScoreManager.isHighScore(this.data.score)) {
+        this.data.state = 'submitScore';
+        this.textInput.activate();
+      } else {
+        this.data.state = 'gameOver';
+        this.gameOverTimer = CONFIG.timing.gameOverReturnDelay;
+      }
+
       // Stop UFO sound on game over
       if (this.ufo) {
         this.audio.stopUFOSound();
@@ -503,6 +606,35 @@ export class Game {
       this.ship.transform.position
     );
     this.asteroids.push(...newAsteroids);
+  }
+
+  private transitionToViewingScores(): void {
+    this.data.state = 'viewingScores';
+    this.menuTimer = 0;
+    this.scoresDisplayDuration = CONFIG.timing.scoresDisplayDuration();
+
+    // Refresh scores if cache expired
+    this.highScoreManager.refreshIfNeeded();
+  }
+
+  private async submitPlayerScore(playerName: string): Promise<void> {
+    const success = await this.highScoreManager.submitScore(
+      playerName,
+      this.data.finalScore!,
+      this.data.finalLevel!
+    );
+
+    // Deactivate text input
+    this.textInput.deactivate();
+
+    if (success) {
+      // Reload scores and show them
+      await this.highScoreManager.loadScores();
+      this.transitionToViewingScores();
+    } else {
+      // On error, just go back to menu
+      this.resetGame();
+    }
   }
 
   private startGame(): void {
@@ -540,6 +672,11 @@ export class Game {
     }
     this.gravityWellSpawnTimer = 0;
     this.wasGravityWellActive = false;
+
+    // Reset high score state
+    this.menuTimer = 0;
+    this.menuDisplayDuration = CONFIG.timing.menuDisplayDuration();
+    this.highScoreManager.clearSubmittedScoreId();
   }
 
   private render(): void {
@@ -549,6 +686,71 @@ export class Game {
       drawMainMenu(this.renderer, this.renderer.width, this.renderer.height);
       this.renderer.flush();
       return;
+    }
+
+    if (this.data.state === 'viewingScores') {
+      drawHighScores(
+        this.renderer,
+        this.highScoreManager.getScores(),
+        this.highScoreManager.getError(),
+        this.highScoreManager.getSubmittedScoreId(),
+        this.renderer.width,
+        this.renderer.height
+      );
+      this.renderer.flush();
+      return;
+    }
+
+    if (this.data.state === 'submitScore') {
+      drawScoreSubmission(
+        this.renderer,
+        this.data.finalScore!,
+        this.data.finalLevel!,
+        this.textInput.getText(),
+        this.textInput.getCursorVisible(),
+        this.textInput.getError(),
+        this.renderer.width,
+        this.renderer.height
+      );
+      this.renderer.flush();
+      return;
+    }
+
+    // Draw background: stars
+    for (const star of this.starfield.stars) {
+      this.renderer.drawPoint(
+        star.position,
+        star.size,
+        CONFIG.background.starColor,
+        star.brightness
+      );
+    }
+
+    // Draw background: moon
+    // Draw moon outline
+    this.renderer.drawCircle(
+      this.moon.position,
+      this.moon.radius,
+      CONFIG.background.moon.color,
+      2,
+      0.6,
+      32
+    );
+
+    // Draw craters
+    for (const crater of this.moon.craters) {
+      const craterPos = {
+        x: this.moon.position.x + crater.position.x,
+        y: this.moon.position.y + crater.position.y,
+      };
+      this.renderer.drawCircle(
+        craterPos,
+        crater.radius,
+        CONFIG.background.moon.craterColor,
+        1,
+        0.4,
+        16
+      );
     }
 
     // Draw asteroids in magenta/pink

@@ -178,3 +178,89 @@ export function drawGameOver(
   const countdownInt = Math.ceil(countdown);
   renderer.drawText(`RETURNING TO MENU IN ${countdownInt}`, width / 2, height / 2 + 110, 2, '#666');
 }
+
+export function drawScoreSubmission(
+  renderer: Renderer,
+  score: number,
+  level: number,
+  inputText: string,
+  cursorVisible: boolean,
+  error: string | null,
+  width: number,
+  height: number
+): void {
+  renderer.drawText('GAME OVER', width / 2, height / 2 - 120, 4);
+  renderer.drawText(`FINAL SCORE: ${score.toLocaleString()}`, width / 2, height / 2 - 70, 3);
+  renderer.drawText(`LEVEL: ${level}`, width / 2, height / 2 - 40, 2);
+
+  renderer.drawText('NEW HIGH SCORE!', width / 2, height / 2 - 5, 3, '#ff0');
+
+  renderer.drawText('ENTER YOUR NAME:', width / 2, height / 2 + 35, 2, '#0ff');
+
+  // Input field with cursor
+  const displayText = inputText + (cursorVisible ? '_' : ' ');
+  renderer.drawText(displayText, width / 2, height / 2 + 65, 3, '#fff');
+
+  // Character count
+  renderer.drawText(`(${inputText.trim().length}/20)`, width / 2, height / 2 + 95, 1.5, '#888');
+
+  // Error message
+  if (error) {
+    renderer.drawText(error, width / 2, height / 2 + 115, 1.5, '#f00');
+  }
+
+  // Instructions
+  renderer.drawText('PRESS ENTER TO SUBMIT', width / 2, height / 2 + 145, 2, '#0ff');
+  renderer.drawText('PRESS ESC TO SKIP', width / 2, height / 2 + 175, 1.5, '#888');
+}
+
+export function drawHighScores(
+  renderer: Renderer,
+  scores: Array<{ rank: number; playerName: string; score: number; level: number }>,
+  error: string | null,
+  _highlightId: string | null,
+  width: number,
+  height: number
+): void {
+  renderer.drawText('HIGH SCORES', width / 2, 60, 4);
+
+  if (error) {
+    renderer.drawText(error, width / 2, height / 2, 2, '#f00');
+    renderer.drawText('PRESS SPACE TO PLAY', width / 2, height - 60, 2, '#0ff');
+    return;
+  }
+
+  if (scores.length === 0) {
+    renderer.drawText('NO SCORES YET', width / 2, height / 2, 2, '#888');
+    renderer.drawText('BE THE FIRST!', width / 2, height / 2 + 30, 2, '#0ff');
+    renderer.drawText('PRESS SPACE TO PLAY', width / 2, height - 60, 2, '#0ff');
+    return;
+  }
+
+  // Header
+  const startY = 120;
+  const lineHeight = 30;
+
+  renderer.drawText('RANK', 150, startY, 2, '#0ff');
+  renderer.drawText('NAME', 280, startY, 2, '#0ff');
+  renderer.drawText('SCORE', 480, startY, 2, '#0ff');
+  renderer.drawText('LEVEL', 650, startY, 2, '#0ff');
+
+  // Separator line
+  renderer.drawLine({ x: 100, y: startY + 10 }, { x: width - 100, y: startY + 10 }, '#0ff');
+
+  // Scores
+  for (let i = 0; i < Math.min(scores.length, 10); i++) {
+    const s = scores[i];
+    const y = startY + 30 + i * lineHeight;
+    const color = '#fff';
+
+    renderer.drawText(`${s.rank}`, 150, y, 2, color);
+    renderer.drawText(s.playerName, 280, y, 2, color);
+    renderer.drawText(s.score.toLocaleString(), 480, y, 2, color);
+    renderer.drawText(`${s.level}`, 650, y, 2, color);
+  }
+
+  // Instructions
+  renderer.drawText('PRESS SPACE TO PLAY', width / 2, height - 60, 2, '#0ff');
+}

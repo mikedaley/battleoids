@@ -5,3 +5,5 @@ export { Debris } from './debris';
 export { HyperspaceParticles } from './hyperspaceParticle';
 export { UFO } from './ufo';
 export { GravityWell } from './gravityWell';
+export { Starfield } from './starfield';
+export { Moon } from './moon';

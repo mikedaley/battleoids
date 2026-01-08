@@ -11,7 +11,18 @@
       "Bash(npm run deploy:*)",
       "Bash(npm uninstall:*)",
       "Bash(git commit:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(cat:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(docker logs:*)",
+      "Bash(git init:*)",
+      "Bash(gh repo create:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(docker ps:*)",
+      "Bash(pkill:*)"
     ]
   }
 }

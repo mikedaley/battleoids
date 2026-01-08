@@ -72,6 +72,18 @@ export const CONFIG = {
     respawnDelay: 2,
     gameOverReturnDelay: 10,
     maxDeltaTime: 0.1, // cap for frame time
+    menuDisplayDuration: () => 15 + Math.random() * 5, // 15-20 seconds
+    scoresDisplayDuration: () => 15 + Math.random() * 5, // 15-20 seconds
+    scoreSubmissionTimeout: 60, // Return to menu after 60s inactivity
+  },
+
+  // High Score API
+  highScores: {
+    gameId: 'battleoids',
+    displayCount: 10,
+    minNameLength: 3,
+    maxNameLength: 20,
+    cacheTimeout: 30000, // Cache scores for 30 seconds
   },
 
   // Colors
@@ -107,6 +119,18 @@ export const CONFIG = {
     gravityWellSpiralArms: 4,
     gravityWellPointsPerArm: 10,
     circleSegments: 24,
+  },
+
+  // Background visuals
+  background: {
+    starCount: 100,
+    starColor: '#fff',
+    moon: {
+      radius: 60,
+      craterCount: 8,
+      color: '#888',
+      craterColor: '#555',
+    },
   },
 
   // Initial game state
