@@ -14,7 +14,6 @@ import {
   UFO,
   GravityWell,
   Starfield,
-  Moon,
 } from '../entities';
 import { checkCollision, wrapEntity } from '../physics/collision';
 import { angleToVector, randomRange } from '../physics/math';
@@ -44,7 +43,6 @@ export class Game {
   private highScoreManager: HighScoreManager;
 
   private starfield: Starfield;
-  private _moon: Moon; // Unused - moon rendering currently disabled
   private ship: Ship;
   private asteroids: Asteroid[] = [];
   private bullets: Bullet[] = [];
@@ -92,14 +90,6 @@ export class Game {
       this.renderer.width,
       this.renderer.height,
       CONFIG.background.starCount
-    );
-
-    // Position moon in top-right corner (currently not rendered)
-    this._moon = new Moon(
-      this.renderer.width - 100,
-      100,
-      CONFIG.background.moon.radius,
-      CONFIG.background.moon.craterCount
     );
 
     // Create ship at center
